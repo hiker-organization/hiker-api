@@ -1,0 +1,23 @@
+{
+  "name": "hiker-backend",
+  "version": "1.0.0",
+  "description": "Backend Hiker App",
+  "main": "index.js",
+  "scripts": {
+    "test": "test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/PI-DSM-5-Semestre/Backend.git"
+  },
+  "author": "Hiker",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/PI-DSM-5-Semestre/Backend/issues"
+  },
+  "homepage": "https://github.com/PI-DSM-5-Semestre/Backend#readme",
+  "dependencies": {
+    "dotenv": "^17.3.1",
+    "pg": "^8.20.0"
+  }
+}
