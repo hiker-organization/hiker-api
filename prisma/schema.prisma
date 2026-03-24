@@ -1,0 +1,74 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Usuario {
+  id              Int         @id             @default(autoincrement())
+  nome            String  
+  nome_exibicao   String
+  email           String      @unique
+  senha           String
+  foto_url        String?
+  reputacao       Float       @default(0)
+  role            Role        @default(USER)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  // aqui os campos que vai exigir para o recuperar senha.
+  resetPasswordToken   String?
+  resetPasswordExpires DateTime?
+
+  // parte estrangeira.
+  reviews         Review[]
+  denuncias       Denuncia[]
+}
+
+model Review {
+  id              Int         @id             @default(autoincrement())
+  id_usuario      Int
+  id_local        String      // vi que o place id da API do google retorna sempre string.
+  qnt_likes       Int         @default(0)
+  qnt_dislikes    Int         @default(0)
+  qnt_denuncia    Int         @default(0)
+  is_oculto       Boolean     @default(false)
+  nota            Int         @default(0)         
+  descricao       String
+  foto_url        String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  // chaves estrangeiras:
+  // navegação.
+  autor       Usuario    @relation(fields: [id_usuario], references: [id], onDelete: Restrict, onUpdate: Cascade) 
+  denuncias   Denuncia[]
+  
+  // melhorar a busca.
+  @@index([id_usuario])
+  @@index([id_local])
+}
+
+model Denuncia {
+  id         Int        @id            @default(autoincrement())
+  descricao  String
+  createdAt  DateTime   @default(now())
+
+  // fksssss
+  autor      Usuario    @relation(fields: [id_usuario], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  id_usuario Int
+
+  review     Review     @relation(fields: [id_review], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  id_review  Int
+
+  // usuário nao pode denunciar mesma coisa duas vezes.
+  @@unique([id_usuario, id_review])
+}
+
+enum Role {
+  USER
+  ADM
+}
