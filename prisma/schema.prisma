@@ -13,6 +13,8 @@ model Usuario {
   nome_exibicao   String
   email           String      @unique
   senha           String
+  data_nascimento DateTime
+  numero_celular  String
   foto_url        String?
   reputacao       Float       @default(0)
   role            Role        @default(USER)
@@ -20,8 +22,8 @@ model Usuario {
   updatedAt       DateTime    @updatedAt
 
   // aqui os campos que vai exigir para o recuperar senha.
-  resetPasswordToken   String?
-  resetPasswordExpires DateTime?
+  token_reset_senha   String?
+  expiracao_reset_senha DateTime?
 
   // parte estrangeira.
   reviews         Review[]

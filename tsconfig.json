@@ -14,7 +14,7 @@
     "sourceMap": true,
     "outDir": "./dist",
     "incremental": true,
-    "types": ["node", "jest", "express"],
+    "types": ["node", "jest", "express", "multer"],
     "skipLibCheck": true,
     "strictNullChecks": true,
     "forceConsistentCasingInFileNames": true,
