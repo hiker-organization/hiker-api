@@ -8,26 +8,23 @@ datasource db {
 }
 
 model Usuario {
-  id              Int         @id             @default(autoincrement())
-  nome            String  
-  nome_exibicao   String
-  email           String      @unique
-  senha           String
-  data_nascimento DateTime
-  numero_celular  String
-  foto_url        String?
-  reputacao       Float       @default(0)
-  role            Role        @default(USER)
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-
-  // aqui os campos que vai exigir para o recuperar senha.
-  token_reset_senha   String?
-  expiracao_reset_senha DateTime?
+  id                      Int         @id             @default(autoincrement())
+  nome_usuario            String      @unique 
+  nome_exibicao           String
+  email                   String      @unique
+  senha                   String
+  data_nascimento         DateTime
+  numero_celular          String
+  foto_url                String?
+  reputacao               Float       @default(0)
+  cargo                   Role        @default(USER)
+  createdAt               DateTime    @default(now())
+  updatedAt               DateTime    @updatedAt
 
   // parte estrangeira.
   reviews         Review[]
   denuncias       Denuncia[]
+  tokens          Token_redefinicao_senha[]
 }
 
 model Review {
@@ -37,7 +34,7 @@ model Review {
   qnt_likes       Int         @default(0)
   qnt_dislikes    Int         @default(0)
   qnt_denuncia    Int         @default(0)
-  is_oculto       Boolean     @default(false)
+  oculto          Boolean     @default(false)
   nota            Int         @default(0)         
   descricao       String
   foto_url        String?
@@ -52,6 +49,16 @@ model Review {
   // melhorar a busca.
   @@index([id_usuario])
   @@index([id_local])
+}
+
+model Token_redefinicao_senha {
+  id            String    @id
+  expira_em     String
+  
+  usuario       Usuario   @relation(fields: [id_usuario], references: [id], onDelete: Cascade)
+  id_usuario    Int
+  
+  @@index([id_usuario])
 }
 
 model Denuncia {

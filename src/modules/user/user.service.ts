@@ -17,6 +17,10 @@ export class UserService {
         await this.numero_is_equal_fail(data.numero_celular)
 
         const hash = await this.hashService.hash(data.senha)
+        
+        const nick = `@${data.nome_usuario}`
+
+        await this.nick_empty_or_fail(nick)
 
         if(foto) {
             // vou usar um narrowing neste ponto.
@@ -35,8 +39,8 @@ export class UserService {
 
         const user = await this.prisma.usuario.create(
             {   
-                data:   { ...data, senha: hash }, 
-                select: {nome_exibicao: true, email: true}
+                data:   { ...data, senha: hash, nome_usuario: nick }, 
+                select: {nome_usuario: true,nome_exibicao: true, email: true}
             }
         )
 
@@ -48,6 +52,13 @@ export class UserService {
 
         if(user) throw new ConflictException("Email já existente.")
 
+        return true
+    }
+    private async nick_empty_or_fail(nick:string) : Promise<boolean> {
+        const user = await this.prisma.usuario.findUnique({ where: { nome_usuario: nick } })
+
+        if(user) throw new ConflictException("Nome de usuário já existente.")
+        
         return true
     }
     private async numero_is_equal_fail(numero:string) : Promise<boolean> {

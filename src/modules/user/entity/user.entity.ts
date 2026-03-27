@@ -2,7 +2,7 @@ import { Role } from "../../../../generated/prisma/enums.js"
 
 export class userEntity {
     public id!: number
-    public nome!: string
+    public nome_usuario!: string
     public nome_exibicao!: string
     public email!: string
     public senha!: string
@@ -10,5 +10,5 @@ export class userEntity {
     public data_nascimento!: Date
     public foto_url?: string
     public reputacao!: number
-    public role?: Role
+    public cargo?: Role
 }
