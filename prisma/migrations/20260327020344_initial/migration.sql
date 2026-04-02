@@ -40,7 +40,7 @@ CREATE TABLE "Review" (
 -- CreateTable
 CREATE TABLE "Token_redefinicao_senha" (
     "id" TEXT NOT NULL,
-    "expira_em" TEXT NOT NULL,
+    "expira_em" TIMESTAMP(3) NOT NULL,
     "id_usuario" INTEGER NOT NULL,
 
     CONSTRAINT "Token_redefinicao_senha_pkey" PRIMARY KEY ("id")

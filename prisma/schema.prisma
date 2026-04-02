@@ -53,7 +53,7 @@ model Review {
 
 model Token_redefinicao_senha {
   id            String    @id
-  expira_em     String
+  expira_em     DateTime
   
   usuario       Usuario   @relation(fields: [id_usuario], references: [id], onDelete: Cascade)
   id_usuario    Int
