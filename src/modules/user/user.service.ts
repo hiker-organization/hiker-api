@@ -1,21 +1,21 @@
 import { ConflictException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { createUserDTO } from './dtos/createUser.dto.js';
-import { create_response } from '../../common/helpers/createResponse.helper.js';
-import { fileService } from '../../common/services/file.service.js';
+import { CreateUserDTO } from './dtos/createUser.dto.js';
+import { create_response } from '../../common/helpers/create-response.helper.js';
+import { FileService } from '../../common/services/file.service.js';
 import path from 'node:path';
 import { mkdir } from 'node:fs/promises';
-import { HashingService } from '../auth/hashing/hashing.service.js';
+import { HashingService } from '../../common/services/hash.service.js';
 
 @Injectable()
 export class UserService {
   constructor(
     private prisma: PrismaService,
     private readonly hashService: HashingService,
-    private readonly fileService: fileService,
+    private readonly fileService: FileService,
   ) {}
 
-  async create_user(data: createUserDTO, foto?: Express.Multer.File) {
+  async create_user(data: CreateUserDTO, foto?: Express.Multer.File) {
     await this.email_empty_or_fail(data.email);
 
     await this.numero_is_equal_fail(data.numero_celular);
@@ -27,7 +27,6 @@ export class UserService {
     await this.nick_empty_or_fail(nick);
 
     if (foto) {
-      // vou usar um narrowing neste ponto.
       const extName = path
         .extname(foto?.originalname)
         .toLowerCase()

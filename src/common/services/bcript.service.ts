@@ -1,7 +1,9 @@
-import { hashingService } from "./hash.service.js";
+import { Injectable } from "@nestjs/common";
+import { HashingService } from "./hash.service.js";
 import bcrypt from "bcryptjs";
 
-export class bcryptService extends hashingService {
+@Injectable()
+export class BcryptService extends HashingService {
 
     async hash(password: string): Promise<string> {
         const salt = await bcrypt.genSalt();

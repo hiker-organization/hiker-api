@@ -1,13 +1,15 @@
 import { BadRequestException, Injectable, UnauthorizedException} from '@nestjs/common';
-import { LoginDto } from './dto/login.dto.js';
+import { LoginDTO } from './dto/login.dto.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { HashingService } from './hashing/hashing.service.js';
 import { JwtService } from '@nestjs/jwt';
 import { EmailService } from '../../common/services/email.service.js';
-import { ForgotPasswordDto } from './dto/forgot-password.dto.js';
-import { ResetPasswordDto } from './dto/reset-password.dto.js';
+import { ForgotPasswordDTO } from './dto/forgot-password.dto.js';
+import { ResetPasswordDTO } from './dto/reset-password.dto.js';
 import { createHash, randomBytes } from 'node:crypto';
-import { create_response } from '../../common/helpers/createResponse.helper.js';
+import { create_response } from '../../common/helpers/create-response.helper.js';
+import { HashingService } from '../../common/services/hash.service.js';
+import { login_response } from '../../common/helpers/login-response.helper.js';
+import { message_response } from '../../common/helpers/message-response.helper.js';
 
 @Injectable()
 export class AuthService {
@@ -17,8 +19,8 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly emailService: EmailService,
   ) {}
-
-  async login(loginDto: LoginDto) {
+  
+  async login(loginDto: LoginDTO) {
     const user = await this.prisma.usuario.findUnique({
       where: { email: loginDto.email },
     });
@@ -27,12 +29,12 @@ export class AuthService {
       throw new UnauthorizedException('Email ou senha inválidos.');
     }
 
-    const senha_is_valid = await this.hashService.compare(
+    const senhaIsValid = await this.hashService.compare(
       loginDto.password,
       user.senha,
     );
 
-    if (!senha_is_valid) {
+    if (!senhaIsValid) {
       throw new UnauthorizedException('Email ou senha inválidos.');
     }
 
@@ -41,13 +43,10 @@ export class AuthService {
       email: user.email,
     });
 
-    return {
-      message: 'login realizado com sucesso!',
-      accessToken,
-    };
+    return login_response("logado com sucesso.", accessToken)
   }
 
-  async forgotPassword(forgotPasswordDto: ForgotPasswordDto) {
+  async forgot_password(forgotPasswordDto: ForgotPasswordDTO) {
     const user = await this.prisma.usuario.findUnique({
       where: { email: forgotPasswordDto.email },
     });
@@ -60,7 +59,7 @@ export class AuthService {
     }
 
     const rawToken = randomBytes(32).toString('hex');
-    const tokenHash = this.hashResetToken(rawToken);
+    const tokenHash = this.hash_reset_token(rawToken);
     const expiresAt = new Date(Date.now() + 1000 * 60 * 15);
 
     await this.prisma.token_redefinicao_senha.deleteMany({
@@ -80,14 +79,13 @@ export class AuthService {
 
     await this.emailService.sendPasswordResetEmail(user.email, resetLink);
 
-    return create_response(
+    return message_response(
       'Se existir uma conta com esse email, um link de recuperação será enviado.',
-      null,
     );
   }
 
-  async resetPassword(resetPasswordDto: ResetPasswordDto) {
-    const tokenHash = this.hashResetToken(resetPasswordDto.token);
+  async reset_password(resetPasswordDto: ResetPasswordDTO) {
+    const tokenHash = this.hash_reset_token(resetPasswordDto.token);
 
     const token = await this.prisma.token_redefinicao_senha.findUnique({
       where: { id: tokenHash },
@@ -110,10 +108,10 @@ export class AuthService {
       }),
     ]);
 
-    return create_response('Senha redefinida com sucesso!', null);
+    return message_response('Senha redefinida com sucesso!');
   }
 
-  private hashResetToken(token: string): string {
+  private hash_reset_token(token: string): string {
     return createHash('sha256').update(token).digest('hex');
   }
 }

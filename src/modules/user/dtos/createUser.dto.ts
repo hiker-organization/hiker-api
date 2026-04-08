@@ -12,7 +12,7 @@ import {
   Matches,
 } from 'class-validator';
 
-export class createUserDTO {
+export class CreateUserDTO {
   @IsString({ message: 'Não insira numeros aqui.' })
   @MaxLength(20, { message: 'Limite de 20 caractétes.' })
   @NotContains(' ', { message: 'Espaços não são permitidos.' })
