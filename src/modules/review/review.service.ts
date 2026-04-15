@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateReviewDTO } from './dtos/create-review.dto.js';
 import { PayloadDTO } from '../auth/dto/payload.dto.js';
@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdir } from 'node:fs/promises';
 import { FileService } from '../../common/services/file.service.js';
 import { create_response } from '../../common/helpers/create-response.helper.js';
+import { get_response } from '../../common/helpers/get-response.helper.js';
 
 @Injectable()
 export class ReviewService {
@@ -73,5 +74,35 @@ export class ReviewService {
 
             return create_response("Sua review foi criada com sucesso.", review)
         })
+    }
+
+    async get_review(id: number) {
+        const review = await this.find_one_review_with_full_content(id)
+        return get_response("review encontrada.", review)
+    }
+
+    private async find_one_review_with_full_content(id: number) {
+        const review = await this.prisma.review.findUnique(
+            { 
+                where: { id: id },
+                select: {
+                    descricao: true,
+                    local: true,
+                    qnt_likes: true,
+                    qnt_dislikes: true,
+                    nota: true,
+                    fotos: { select: { url: true } },
+                    tags: { 
+                        select: { 
+                            tag: { 
+                                select: { descritivo: true } 
+                            } 
+                        } 
+                    }
+                }
+            }
+        )
+        if(!review) throw new NotFoundException("review não encontrada.")
+        return review
     }
 }
