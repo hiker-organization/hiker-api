@@ -76,6 +76,11 @@ export class ReviewService {
         })
     }
 
+    async get_reviews() {
+        const reviews = await this.find_reviews_with_full_content()
+        return get_response("reviews disponíveis", reviews)
+    }
+
     async get_review(id: number) {
         const review = await this.find_one_review_with_full_content(id)
         return get_response("review encontrada.", review)
@@ -104,5 +109,29 @@ export class ReviewService {
         )
         if(!review) throw new NotFoundException("review não encontrada.")
         return review
+    }
+
+    private async find_reviews_with_full_content() {
+        const reviews = await this.prisma.review.findMany(
+            {
+                select: {
+                    descricao: true,
+                    local: true,
+                    qnt_likes: true,
+                    qnt_dislikes: true,
+                    nota: true,
+                    fotos: { select: { url: true } },
+                    tags: { 
+                        select: { 
+                            tag: { 
+                                select: { descritivo: true } 
+                            } 
+                        } 
+                    }
+                }
+            }
+        )
+        if(!reviews || reviews.length == 0) throw new NotFoundException("nenhuma review encontrada no momento.")
+        return reviews
     }
 }

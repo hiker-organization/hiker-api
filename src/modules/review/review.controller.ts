@@ -35,6 +35,11 @@ export class ReviewController {
         return this.service.create_review(data, token, fotos)
     }
 
+    @Get()
+    get_reviews() {
+        return this.service.get_reviews()
+    }
+
     @Get("/:id")
     get_review(@Param("id", ParseIntPipe) id: number) {
         return this.service.get_review(id)
