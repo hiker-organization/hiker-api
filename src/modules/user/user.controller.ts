@@ -1,16 +1,26 @@
-import { Body, Controller, HttpStatus, ParseFilePipeBuilder, Post, UnprocessableEntityException, UploadedFile, UseInterceptors } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  ParseFilePipeBuilder,
+  Post,
+  UnprocessableEntityException,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
 import { UserService } from './user.service.js';
-import { createUserDTO } from './dtos/createUser.dto.js';
+import { CreateUserDTO } from './dtos/createUser.dto.js';
 import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('user')
 export class UserController {
-    constructor(private readonly service: UserService){}
+  constructor(private readonly service: UserService) {}
 
-    @Post()
-    @UseInterceptors(FileInterceptor('foto'))
-    create_user(@Body() data: createUserDTO, @UploadedFile(
-        new ParseFilePipeBuilder()
+  @Post()
+  @UseInterceptors(FileInterceptor('foto'))
+  create_user(
+    @Body() data: CreateUserDTO,
+    @UploadedFile(
+      new ParseFilePipeBuilder()
         .addFileTypeValidator({
           fileType: /jpeg|jpg|png/g,
           errorMessage: 'imagem precisa estar em jpeg ou jpg ou png.',
@@ -22,8 +32,10 @@ export class UserController {
         .build({
           fileIsRequired: false,
           exceptionFactory: (error) => new UnprocessableEntityException(error),
-        })
-    ) foto?: Express.Multer.File) {
-        return this.service.create_user(data, foto)
-    }
+        }),
+    )
+    foto?: Express.Multer.File,
+  ) {
+    return this.service.create_user(data,foto);
+  }
 }
