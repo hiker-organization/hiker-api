@@ -1,10 +1,11 @@
-import { Body, Controller, Delete, Get, Param, ParseFilePipeBuilder, ParseIntPipe, Post, UnprocessableEntityException, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseFilePipeBuilder, ParseIntPipe, Patch, Post, UnprocessableEntityException, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common';
 import { ReviewService } from './review.service.js';
 import { AuthToken } from '../auth/guard/auth.guard.js';
 import { TokenPayloadParam } from '../auth/utils/param/token-payload.param.js';
 import { PayloadDTO } from '../auth/dto/payload.dto.js';
 import { CreateReviewDTO } from './dtos/create-review.dto.js';
 import { FilesInterceptor } from '@nestjs/platform-express';
+import { UpdateReviewDTO } from './dtos/update-review.dto.js';
 
 @Controller('review')
 export class ReviewController {
@@ -44,6 +45,16 @@ export class ReviewController {
     get_review(@Param("id", ParseIntPipe) id: number) {
         return this.service.get_review(id)
     }
+
+    @UseGuards(AuthToken)
+    @Patch("edit/:id")
+    update_review(
+        @Param("id", ParseIntPipe) id: number, 
+        @Body() data: UpdateReviewDTO, 
+        @TokenPayloadParam() token: PayloadDTO
+    ) {
+        return this.service.update_review(id, data, token)
+    } 
 
     @UseGuards(AuthToken)
     @Delete("/delete/:id")
