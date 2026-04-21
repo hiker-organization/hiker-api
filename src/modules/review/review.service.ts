@@ -87,6 +87,32 @@ export class ReviewService {
         return get_response("review encontrada.", review)
     }
 
+    async update_review(id: number, data: any, token: PayloadDTO) {
+        const review = await this.find_user_review(id, token)
+        const review_updated = await this.prisma.review.update(
+            {
+                where: { id: review.id },
+                data: data,
+                select: {
+                    descricao: true,
+                    local: true,
+                    qnt_likes: true,
+                    qnt_dislikes: true,
+                    nota: true,
+                    fotos: { select: { url: true } },
+                    tags: { 
+                        select: { 
+                            tag: { 
+                                select: { descritivo: true } 
+                            } 
+                        } 
+                    }
+                }
+            }
+        )
+        return create_response("Review atualizada com sucesso.", review_updated)
+    }
+
     async delete_review(id: number, token: PayloadDTO) {
         const review = await this.find_user_review(id, token)
         await this.prisma.review.delete(
