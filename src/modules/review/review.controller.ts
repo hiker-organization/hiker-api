@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseFilePipeBuilder, ParseIntPipe, Post, UnprocessableEntityException, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseFilePipeBuilder, ParseIntPipe, Post, UnprocessableEntityException, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common';
 import { ReviewService } from './review.service.js';
 import { AuthToken } from '../auth/guard/auth.guard.js';
 import { TokenPayloadParam } from '../auth/utils/param/token-payload.param.js';
@@ -43,5 +43,11 @@ export class ReviewController {
     @Get("/:id")
     get_review(@Param("id", ParseIntPipe) id: number) {
         return this.service.get_review(id)
+    }
+
+    @UseGuards(AuthToken)
+    @Delete("/delete/:id")
+    delete_review(@Param("id", ParseIntPipe) id: number, @TokenPayloadParam() token: PayloadDTO) {
+        return this.service.delete_review(id, token)
     }
 }

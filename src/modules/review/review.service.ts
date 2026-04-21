@@ -8,6 +8,7 @@ import { mkdir } from 'node:fs/promises';
 import { FileService } from '../../common/services/file.service.js';
 import { create_response } from '../../common/helpers/create-response.helper.js';
 import { get_response } from '../../common/helpers/get-response.helper.js';
+import { message_response } from '../../common/helpers/message-response.helper.js';
 
 @Injectable()
 export class ReviewService {
@@ -86,6 +87,16 @@ export class ReviewService {
         return get_response("review encontrada.", review)
     }
 
+    async delete_review(id: number, token: PayloadDTO) {
+        const review = await this.find_user_review(id, token)
+        await this.prisma.review.delete(
+            {
+                where: { id: id }
+            }
+        )
+        return message_response("Review excluída com sucesso.")
+    }
+
     private async find_one_review_with_full_content(id: number) {
         const review = await this.prisma.review.findUnique(
             { 
@@ -133,5 +144,15 @@ export class ReviewService {
         )
         if(!reviews || reviews.length == 0) throw new NotFoundException("nenhuma review encontrada no momento.")
         return reviews
+    }
+
+    private async find_user_review(id: number, token: PayloadDTO) {
+        const review = await this.prisma.review.findUnique(
+            {
+                where: { id: id, AND: { id_usuario: token.sub } }
+            }
+        )
+        if(!review) throw new NotFoundException("Review não encontrada")
+        return review
     }
 }
