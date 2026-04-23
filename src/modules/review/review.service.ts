@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateReviewDTO } from './dtos/create-review.dto.js';
@@ -25,7 +26,7 @@ export class ReviewService {
                             .toLowerCase()
                             .substring(1);
                     const fileName = `${randomUUID()}.${extName}`;
-                    const pathMaster = path.resolve(process.cwd(), 'imgs', fileName);
+                    const pathMaster = path.resolve(process.cwd(), 'imgs/reviews', fileName);
                     const dirPath = path.dirname(pathMaster);
 
                     await mkdir(dirPath, { recursive: true });
@@ -73,7 +74,10 @@ export class ReviewService {
                 }
             })
 
-            return create_response("Sua review foi criada com sucesso.", review)
+            return create_response("Sua review foi criada com sucesso.", {
+                ...review,
+                fotos: review.fotos.map(foto => ({ url: `${process.env.API_STATIC}${foto.url}` }))
+            })
         })
     }
 
@@ -87,39 +91,16 @@ export class ReviewService {
         return get_response("review encontrada.", review)
     }
 
-    async update_review(id: number, data: any, token: PayloadDTO) {
-        const review = await this.find_user_review(id, token)
-        const review_updated = await this.prisma.review.update(
-            {
-                where: { id: review.id },
-                data: data,
-                select: {
-                    descricao: true,
-                    local: true,
-                    qnt_likes: true,
-                    qnt_dislikes: true,
-                    nota: true,
-                    fotos: { select: { url: true } },
-                    tags: { 
-                        select: { 
-                            tag: { 
-                                select: { descritivo: true } 
-                            } 
-                        } 
-                    }
-                }
-            }
-        )
-        return create_response("Review atualizada com sucesso.", review_updated)
-    }
-
     async delete_review(id: number, token: PayloadDTO) {
+        const fotosUrls: string[] = []
         const review = await this.find_user_review(id, token)
+        review.fotos.forEach((foto) => { fotosUrls.push(foto.url) })
         await this.prisma.review.delete(
             {
                 where: { id: id }
             }
         )
+        await this.remove_photos(fotosUrls)
         return message_response("Review excluída com sucesso.")
     }
 
@@ -145,7 +126,11 @@ export class ReviewService {
             }
         )
         if(!review) throw new NotFoundException("review não encontrada.")
-        return review
+        
+        return {
+            ...review,
+            fotos: review.fotos.map(foto => ({ url: `${process.env.API_STATIC}${foto.url}` }))
+        }
     }
 
     private async find_reviews_with_full_content() {
@@ -169,16 +154,32 @@ export class ReviewService {
             }
         )
         if(!reviews || reviews.length == 0) throw new NotFoundException("nenhuma review encontrada no momento.")
-        return reviews
+        
+        return reviews.map(review => ({
+            ...review,
+            fotos: review.fotos.map(foto => ({ url: `${process.env.API_STATIC}${foto.url}` }))
+        }))
     }
 
     private async find_user_review(id: number, token: PayloadDTO) {
         const review = await this.prisma.review.findUnique(
             {
-                where: { id: id, AND: { id_usuario: token.sub } }
+                where: { id: id, AND: { id_usuario: token.sub } },
+                select: { 
+                    fotos: { select: { url: true } } 
+                }
             }
         )
         if(!review) throw new NotFoundException("Review não encontrada")
         return review
+    }
+
+    private async remove_photos(fotosUrls: string[]) {
+        await Promise.all(
+            fotosUrls.map((foto) => {
+                const pathMaster = path.resolve(process.cwd(), 'imgs/reviews', foto)
+                return this.fileService.deleteFile(pathMaster)
+            })
+        )
     }
 }

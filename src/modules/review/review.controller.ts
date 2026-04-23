@@ -47,16 +47,6 @@ export class ReviewController {
     }
 
     @UseGuards(AuthToken)
-    @Patch("edit/:id")
-    update_review(
-        @Param("id", ParseIntPipe) id: number, 
-        @Body() data: UpdateReviewDTO, 
-        @TokenPayloadParam() token: PayloadDTO
-    ) {
-        return this.service.update_review(id, data, token)
-    } 
-
-    @UseGuards(AuthToken)
     @Delete("/delete/:id")
     delete_review(@Param("id", ParseIntPipe) id: number, @TokenPayloadParam() token: PayloadDTO) {
         return this.service.delete_review(id, token)
