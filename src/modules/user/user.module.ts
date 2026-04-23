@@ -7,10 +7,7 @@ import { AuthModule } from '../auth/auth.module.js';
 
 @Module({
   imports: [PrismaModule, AuthModule],
-  providers: [
-    UserService,
-    FileService,
-  ],
+  providers: [UserService, FileService],
   controllers: [UserController],
 })
 export class UserModule {}

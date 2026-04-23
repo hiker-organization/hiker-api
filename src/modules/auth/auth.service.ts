@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, UnauthorizedException} from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { LoginDTO } from './dto/login.dto.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { JwtService } from '@nestjs/jwt';
@@ -19,7 +23,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly emailService: EmailService,
   ) {}
-  
+
   async login(loginDto: LoginDTO) {
     const user = await this.prisma.usuario.findUnique({
       where: { email: loginDto.email },
@@ -43,7 +47,7 @@ export class AuthService {
       email: user.email,
     });
 
-    return login_response("logado com sucesso.", accessToken)
+    return login_response('logado com sucesso.', accessToken);
   }
 
   async forgot_password(forgotPasswordDto: ForgotPasswordDTO) {
