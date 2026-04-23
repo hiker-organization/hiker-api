@@ -49,7 +49,6 @@ export class UserService {
         nome_usuario: true,
         nome_exibicao: true,
         email: true,
-        senha: true,
       },
     });
 
