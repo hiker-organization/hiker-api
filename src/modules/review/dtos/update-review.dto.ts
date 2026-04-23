@@ -12,4 +12,6 @@ export class UpdateReviewDTO {
     @IsOptional({ message: "nota é obrigatória." })
     public nota!: number
 
+    @IsOptional()
+    public fotos?: string | string[]
 }

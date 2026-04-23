@@ -9,4 +9,12 @@ export class FileService {
   ): Promise<void> {
     return fs.writeFile(path, data);
   }
+
+  async deleteFile(filePath: string): Promise<void> {
+    try {
+        await fs.unlink(filePath);
+    } catch (error) {
+        console.error(`Erro ao deletar o arquivo: ${filePath}`, error);
+    }
+}
 }

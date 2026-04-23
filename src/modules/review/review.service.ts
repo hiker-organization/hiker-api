@@ -87,34 +87,73 @@ export class ReviewService {
         return get_response("review encontrada.", review)
     }
 
-    async update_review(id: number, data: any, token: PayloadDTO) {
+    async update_review(id: number, data: any, token: PayloadDTO, fotos?: Array<Express.Multer.File>) {
         const review = await this.find_user_review(id, token)
-        const review_updated = await this.prisma.review.update(
-            {
-                where: { id: review.id },
-                data: data,
-                select: {
-                    descricao: true,
-                    local: true,
-                    qnt_likes: true,
-                    qnt_dislikes: true,
-                    nota: true,
-                    fotos: { select: { url: true } },
-                    tags: { 
-                        select: { 
-                            tag: { 
-                                select: { descritivo: true } 
-                            } 
-                        } 
-                    }
-                }
-            }
-        )
-        return create_response("Review atualizada com sucesso.", review_updated)
+
+        const fotosUrls: string[] = [];
+        if (fotos && fotos.length > 0) {
+            await Promise.all(
+                fotos.map(async (foto) => {
+                    const extName = path.extname(foto?.originalname).toLowerCase().substring(1);
+                    const fileName = `${randomUUID()}.${extName}`;
+                    const pathMaster = path.resolve(process.cwd(), 'imgs', fileName);
+                    const dirPath = path.dirname(pathMaster);
+
+                    await mkdir(dirPath, { recursive: true });
+                    await this.fileService.writeFile(pathMaster, foto.buffer);
+
+                    fotosUrls.push(fileName);
+                })
+            );
+
+            await this.prisma.foto.deleteMany({
+                where: { id_review: review.id },
+            });
+
+            data.fotos = {
+                create: fotosUrls.map((url) => ({ url })),
+            };
+        }
+
+        const review_updated = await this.prisma.review.update({
+            where: { id: review.id },
+            data: {
+                ...data,
+            },
+            select: {
+                descricao: true,
+                local: true,
+                qnt_likes: true,
+                qnt_dislikes: true,
+                nota: true,
+                fotos: { select: { url: true } },
+                tags: {
+                    select: {
+                        tag: {
+                            select: { descritivo: true },
+                        },
+                    },
+                },
+            },
+        });
+    
+        return create_response("Review atualizada com sucesso.", review_updated);
     }
 
     async delete_review(id: number, token: PayloadDTO) {
         const review = await this.find_user_review(id, token)
+        const fotos = await this.prisma.foto.findMany({
+            where: { id_review: review.id },
+            select: { url: true },
+        });
+
+        await Promise.all(
+            fotos.map(async (foto) => {
+                const filePath = path.resolve(process.cwd(), 'imgs', foto.url);
+                await this.fileService.deleteFile(filePath);
+            })
+        );
+
         await this.prisma.review.delete(
             {
                 where: { id: id }

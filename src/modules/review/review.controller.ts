@@ -47,13 +47,29 @@ export class ReviewController {
     }
 
     @UseGuards(AuthToken)
+    @UseInterceptors(FilesInterceptor('fotos', 5))
     @Patch("edit/:id")
     update_review(
         @Param("id", ParseIntPipe) id: number, 
         @Body() data: UpdateReviewDTO, 
-        @TokenPayloadParam() token: PayloadDTO
+        @TokenPayloadParam() token: PayloadDTO,
+        @UploadedFiles(
+            new ParseFilePipeBuilder()
+                .addFileTypeValidator({
+                    fileType: /jpeg|jpg|png/g,
+                    errorMessage: 'imagem precisa estar em jpeg ou jpg ou png.',
+                })
+                .addMaxSizeValidator({
+                    maxSize: 1 * (1024 * 1024),
+                    errorMessage: 'imagem excede tamanho permitido.',
+                })
+                .build({
+                    fileIsRequired: false,
+                    exceptionFactory: (error) => new UnprocessableEntityException(error),
+                }),
+        ) fotos?: Array<Express.Multer.File>
     ) {
-        return this.service.update_review(id, data, token)
+        return this.service.update_review(id, data, token, fotos)
     } 
 
     @UseGuards(AuthToken)
