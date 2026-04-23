@@ -6,6 +6,7 @@ import { FileService } from '../../common/services/file.service.js';
 import path from 'node:path';
 import { mkdir } from 'node:fs/promises';
 import { HashingService } from '../../common/services/hash.service.js';
+import { randomUUID } from 'node:crypto';
 
 @Injectable()
 export class UserService {
@@ -32,15 +33,15 @@ export class UserService {
         .toLowerCase()
         .substring(1);
 
-      const fileName = `${Date.now()}_${data.nome_exibicao}.${extName}`;
+      const fileName = `${randomUUID()}.${extName}`;
 
-      const pathMaster = path.resolve(process.cwd(), 'imgs', fileName);
+      const pathMaster = path.resolve(process.cwd(), 'imgs/user', fileName);
       const dirPath = path.dirname(pathMaster);
 
       await mkdir(dirPath, { recursive: true });
       await this.fileService.writeFile(pathMaster, foto.buffer);
 
-      data.foto_url = `imgs/${fileName}`;
+      data.foto_url = fileName;
     }
 
     const user = await this.prisma.usuario.create({
@@ -48,8 +49,7 @@ export class UserService {
       select: {
         nome_usuario: true,
         nome_exibicao: true,
-        email: true,
-        senha: true,
+        email: true
       },
     });
 
