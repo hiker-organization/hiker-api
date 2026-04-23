@@ -48,7 +48,7 @@ export class ReviewController {
 
     @UseGuards(AuthToken)
     @UseInterceptors(FilesInterceptor('fotos', 5))
-    @Patch("edit/:id")
+    @Patch("/:id")
     update_review(
         @Param("id", ParseIntPipe) id: number, 
         @Body() data: UpdateReviewDTO, 
@@ -73,7 +73,7 @@ export class ReviewController {
     } 
 
     @UseGuards(AuthToken)
-    @Delete("/delete/:id")
+    @Delete("/:id")
     delete_review(@Param("id", ParseIntPipe) id: number, @TokenPayloadParam() token: PayloadDTO) {
         return this.service.delete_review(id, token)
     }
