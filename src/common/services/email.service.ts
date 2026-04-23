@@ -16,16 +16,16 @@ export class EmailService {
   constructor() {
     const host = process.env.SMTP_HOST;
     const port = Number(process.env.SMTP_PORT);
-    const secure = (process.env.SMTP_SECURE) === 'true';
+    const secure = process.env.SMTP_SECURE === 'true';
 
     this.transporter = nodemailer.createTransport({
       host,
       port,
       secure,
       auth: {
-              user: process.env.SMTP_USER,
-              pass: process.env.SMTP_PASS,
-            }
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
     });
   }
 
@@ -39,10 +39,7 @@ export class EmailService {
     });
   }
 
-  async sendPasswordResetEmail(
-    to: string,
-    resetLink: string,
-  ): Promise<void> {
+  async sendPasswordResetEmail(to: string, resetLink: string): Promise<void> {
     await this.sendMail({
       to,
       subject: 'Redefinição de senha',

@@ -36,6 +36,6 @@ export class UserController {
     )
     foto?: Express.Multer.File,
   ) {
-    return this.service.create_user(data,foto);
+    return this.service.create_user(data, foto);
   }
 }

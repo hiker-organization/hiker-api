@@ -1,16 +1,15 @@
-import { Injectable } from "@nestjs/common";
-import { HashingService } from "./hash.service.js";
-import bcrypt from "bcryptjs";
+import { Injectable } from '@nestjs/common';
+import { HashingService } from './hash.service.js';
+import bcrypt from 'bcryptjs';
 
 @Injectable()
 export class BcryptService extends HashingService {
+  async hash(password: string): Promise<string> {
+    const salt = await bcrypt.genSalt();
+    return bcrypt.hash(password, salt);
+  }
 
-    async hash(password: string): Promise<string> {
-        const salt = await bcrypt.genSalt();
-        return bcrypt.hash(password, salt);
-    }
-
-    async compare(password: string, passwordHash: string): Promise<boolean> {
-        return bcrypt.compare(password, passwordHash);
-    }
+  async compare(password: string, passwordHash: string): Promise<boolean> {
+    return bcrypt.compare(password, passwordHash);
+  }
 }

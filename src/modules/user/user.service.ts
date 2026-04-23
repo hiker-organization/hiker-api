@@ -49,7 +49,7 @@ export class UserService {
       select: {
         nome_usuario: true,
         nome_exibicao: true,
-        email: true
+        email: true,
       },
     });
 
