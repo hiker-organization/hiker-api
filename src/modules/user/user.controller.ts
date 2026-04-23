@@ -8,7 +8,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { UserService } from './user.service.js';
-import { createUserDTO } from './dtos/createUser.dto.js';
+import { CreateUserDTO } from './dtos/createUser.dto.js';
 import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('user')
@@ -18,7 +18,7 @@ export class UserController {
   @Post()
   @UseInterceptors(FileInterceptor('foto'))
   create_user(
-    @Body() data: createUserDTO,
+    @Body() data: CreateUserDTO,
     @UploadedFile(
       new ParseFilePipeBuilder()
         .addFileTypeValidator({
@@ -36,6 +36,6 @@ export class UserController {
     )
     foto?: Express.Multer.File,
   ) {
-    return this.service.create_user(data, foto);
+    return this.service.create_user(data,foto);
   }
 }

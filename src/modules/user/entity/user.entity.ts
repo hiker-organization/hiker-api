@@ -1,6 +1,6 @@
 import { Role } from '../../../../generated/prisma/enums.js';
 
-export class userEntity {
+export class UserEntity {
   public id!: number;
   public nome_usuario!: string;
   public nome_exibicao!: string;

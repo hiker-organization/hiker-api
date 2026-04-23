@@ -21,7 +21,6 @@ model Usuario {
   createdAt               DateTime    @default(now())
   updatedAt               DateTime    @updatedAt
 
-  // parte estrangeira.
   reviews         Review[]
   denuncias       Denuncia[]
   tokens          Token_redefinicao_senha[]
@@ -30,35 +29,58 @@ model Usuario {
 model Review {
   id              Int         @id             @default(autoincrement())
   id_usuario      Int
-  id_local        String      // vi que o place id da API do google retorna sempre string.
+  id_local        String
+  local           String
   qnt_likes       Int         @default(0)
   qnt_dislikes    Int         @default(0)
   qnt_denuncia    Int         @default(0)
   oculto          Boolean     @default(false)
   nota            Int         @default(0)         
   descricao       String
-  foto_url        String?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
-  // chaves estrangeiras:
-  // navegação.
   autor       Usuario    @relation(fields: [id_usuario], references: [id], onDelete: Restrict, onUpdate: Cascade) 
   denuncias   Denuncia[]
   
-  // melhorar a busca.
+  fotos       Foto[]
+  tags        Tag_review[]
+
   @@index([id_usuario])
   @@index([id_local])
 }
 
+model Foto {
+  id              Int         @id             @default(autoincrement())
+  url             String
+  id_review       Int        
+  createdAt       DateTime    @default(now())
+  review          Review      @relation(fields: [id_review], references: [id], onDelete: Cascade)
+
+  @@index([id_review])
+}
+
+model Tag {
+  id              Int         @id             @default(autoincrement())
+  descritivo      String
+  createdAt       DateTime                    @default(now())
+
+  em_reviews      Tag_review[]
+}
+
+model Tag_review {
+  id              Int         @id             @default(autoincrement())
+  id_review       Int
+  id_tag          Int
+
+  review          Review      @relation(fields: [id_review], references: [id], onDelete: Cascade)
+  tag             Tag         @relation(fields: [id_tag], references: [id], onDelete: Cascade)
+}
+
+
 model Token_redefinicao_senha {
   id            String    @id
-<<<<<<< HEAD
   expira_em     DateTime
-=======
-  expira_em     String
->>>>>>> origin/develop
-  
   usuario       Usuario   @relation(fields: [id_usuario], references: [id], onDelete: Cascade)
   id_usuario    Int
   
@@ -70,14 +92,12 @@ model Denuncia {
   descricao  String
   createdAt  DateTime   @default(now())
 
-  // fksssss
   autor      Usuario    @relation(fields: [id_usuario], references: [id], onDelete: Cascade, onUpdate: Cascade)
   id_usuario Int
 
   review     Review     @relation(fields: [id_review], references: [id], onDelete: Cascade, onUpdate: Cascade)
   id_review  Int
 
-  // usuário nao pode denunciar mesma coisa duas vezes.
   @@unique([id_usuario, id_review])
 }
 

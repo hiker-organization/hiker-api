@@ -2,16 +2,14 @@ import { Module } from '@nestjs/common';
 import { UserService } from './user.service.js';
 import { UserController } from './user.controller.js';
 import { PrismaModule } from '../prisma/prisma.module.js';
-import { fileService } from '../../common/services/file.service.js';
-import { HashingService } from '../auth/hashing/hashing.service.js';
-import { BcryptService } from '../auth/hashing/bcript.service.js';
+import { FileService } from '../../common/services/file.service.js';
+import { AuthModule } from '../auth/auth.module.js';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, AuthModule],
   providers: [
     UserService,
-    fileService,
-    { provide: HashingService, useClass: BcryptService },
+    FileService,
   ],
   controllers: [UserController],
 })
