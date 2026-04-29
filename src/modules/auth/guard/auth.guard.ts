@@ -21,7 +21,7 @@ export class AuthToken implements CanActivate {
       const payload = await this.jwtService.verifyAsync(token);
       request[REQUEST_TOKEN_PAYLOAD] = payload;
     } catch (error) {
-      throw new UnauthorizedException(`Acesso não autorizado, erro: ${error}`);
+      throw new UnauthorizedException(`Acesso não autorizado.`);
     }
 
     return true;
