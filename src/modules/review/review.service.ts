@@ -98,7 +98,7 @@ export class ReviewService {
         {
           ...review,
           fotos: review.fotos.map((foto) => ({
-            url: `${process.env.API_STATIC}${foto.url}`,
+            url: `${process.env.API_STATIC_REVIEWS}${foto.url}`,
           })),
         },
         HttpStatus.CREATED,
@@ -138,6 +138,14 @@ export class ReviewService {
         qnt_likes: true,
         qnt_dislikes: true,
         nota: true,
+        autor: {
+          select: {
+            nome_exibicao: true,
+            foto_url: true,
+            reputacao: true,
+            nome_usuario: true,
+          },
+        },
         fotos: { select: { url: true } },
         tags: {
           select: {
@@ -153,8 +161,14 @@ export class ReviewService {
     return {
       ...review,
       fotos: review.fotos.map((foto) => ({
-        url: `${process.env.API_STATIC}${foto.url}`,
+        url: `${process.env.API_STATIC_REVIEWS}${foto.url}`,
       })),
+      autor: {
+        ...review.autor,
+        foto_url: review.autor.foto_url
+          ? `${process.env.API_STATIC_USER}${review.autor.foto_url}`
+          : null,
+      },
     };
   }
 
@@ -166,6 +180,14 @@ export class ReviewService {
         qnt_likes: true,
         qnt_dislikes: true,
         nota: true,
+        autor: {
+          select: {
+            nome_exibicao: true,
+            foto_url: true,
+            reputacao: true,
+            nome_usuario: true,
+          },
+        },
         fotos: { select: { url: true } },
         tags: {
           select: {
@@ -182,8 +204,14 @@ export class ReviewService {
     return reviews.map((review) => ({
       ...review,
       fotos: review.fotos.map((foto) => ({
-        url: `${process.env.API_STATIC}${foto.url}`,
+        url: `${process.env.API_STATIC_REVIEWS}${foto.url}`,
       })),
+      autor: {
+        ...review.autor,
+        foto_url: review.autor.foto_url
+          ? `${process.env.API_STATIC_USER}${review.autor.foto_url}`
+          : null,
+      },
     }));
   }
 
