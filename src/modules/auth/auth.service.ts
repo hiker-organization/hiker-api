@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  HttpStatus,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -47,7 +48,7 @@ export class AuthService {
       email: user.email,
     });
 
-    return login_response('logado com sucesso.', accessToken);
+    return login_response('logado com sucesso.', accessToken, HttpStatus.OK);
   }
 
   async forgot_password(forgotPasswordDto: ForgotPasswordDTO) {
@@ -59,6 +60,7 @@ export class AuthService {
       return create_response(
         'Se existir uma conta com esse email, um link de recuperação será enviado.',
         null,
+        HttpStatus.ACCEPTED,
       );
     }
 
@@ -85,6 +87,7 @@ export class AuthService {
 
     return message_response(
       'Se existir uma conta com esse email, um link de recuperação será enviado.',
+      HttpStatus.OK,
     );
   }
 
@@ -112,7 +115,7 @@ export class AuthService {
       }),
     ]);
 
-    return message_response('Senha redefinida com sucesso!');
+    return message_response('Senha redefinida com sucesso!', HttpStatus.OK);
   }
 
   private hash_reset_token(token: string): string {
