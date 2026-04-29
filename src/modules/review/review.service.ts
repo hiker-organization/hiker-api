@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateReviewDTO } from './dtos/create-review.dto.js';
 import { PayloadDTO } from '../auth/dto/payload.dto.js';
@@ -93,23 +93,27 @@ export class ReviewService {
         },
       });
 
-      return create_response('Sua review foi criada com sucesso.', {
-        ...review,
-        fotos: review.fotos.map((foto) => ({
-          url: `${process.env.API_STATIC}${foto.url}`,
-        })),
-      });
+      return create_response(
+        'Sua review foi criada com sucesso.',
+        {
+          ...review,
+          fotos: review.fotos.map((foto) => ({
+            url: `${process.env.API_STATIC}${foto.url}`,
+          })),
+        },
+        HttpStatus.CREATED,
+      );
     });
   }
 
   async get_reviews() {
     const reviews = await this.find_reviews_with_full_content();
-    return get_response('reviews disponíveis', reviews);
+    return get_response('reviews disponíveis', reviews, HttpStatus.OK);
   }
 
   async get_review(id: number) {
     const review = await this.find_one_review_with_full_content(id);
-    return get_response('review encontrada.', review);
+    return get_response('review encontrada.', review, HttpStatus.OK);
   }
 
   async delete_review(id: number, token: PayloadDTO) {
@@ -122,7 +126,7 @@ export class ReviewService {
       where: { id: id },
     });
     await this.remove_photos(fotosUrls);
-    return message_response('Review excluída com sucesso.');
+    return message_response('Review excluída com sucesso.', HttpStatus.OK);
   }
 
   private async find_one_review_with_full_content(id: number) {

@@ -1,4 +1,4 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import { ConflictException, HttpStatus, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateUserDTO } from './dtos/createUser.dto.js';
 import { create_response } from '../../common/helpers/create-response.helper.js';
@@ -53,7 +53,11 @@ export class UserService {
       },
     });
 
-    return create_response('usuário criado com sucesso!', user);
+    return create_response(
+      'usuário criado com sucesso!',
+      user,
+      HttpStatus.CREATED,
+    );
   }
 
   private async email_empty_or_fail(email: string): Promise<boolean> {

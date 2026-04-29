@@ -1,6 +1,13 @@
-export function login_response<T>(message: string, token: string) {
+import { HttpStatus } from '@nestjs/common';
+
+export function login_response<T>(
+  message: string,
+  token: string,
+  status_code: HttpStatus,
+) {
   return {
     message: message,
     access_token: token,
+    status: status_code,
   };
 }
