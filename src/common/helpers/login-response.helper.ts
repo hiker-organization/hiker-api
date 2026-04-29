@@ -8,6 +8,6 @@ export function login_response<T>(
   return {
     message: message,
     access_token: token,
-    status: status_code,
+    statusCode: status_code,
   };
 }
