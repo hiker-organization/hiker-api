@@ -47,8 +47,11 @@ export class UserController {
   }
 
   @UseGuards(AuthToken)
-  @Get(":id")
-  get_user(@Param("id", ParseIntPipe) id: number, @TokenPayloadParam() token: PayloadDTO) {
-    return this.service.get_user(id, token)
+  @Get(':id')
+  get_user(
+    @Param('id', ParseIntPipe) id: number,
+    @TokenPayloadParam() token: PayloadDTO,
+  ) {
+    return this.service.get_user(id, token);
   }
 }
