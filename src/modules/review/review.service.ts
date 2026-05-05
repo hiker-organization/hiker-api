@@ -138,6 +138,7 @@ export class ReviewService {
         qnt_likes: true,
         qnt_dislikes: true,
         nota: true,
+        createdAt: true,
         autor: {
           select: {
             nome_exibicao: true,
@@ -180,6 +181,7 @@ export class ReviewService {
         qnt_likes: true,
         qnt_dislikes: true,
         nota: true,
+        createdAt: true,
         autor: {
           select: {
             nome_exibicao: true,

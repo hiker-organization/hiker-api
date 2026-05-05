@@ -1,15 +1,22 @@
 import {
   Body,
   Controller,
+  Get,
+  Param,
   ParseFilePipeBuilder,
+  ParseIntPipe,
   Post,
   UnprocessableEntityException,
   UploadedFile,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { UserService } from './user.service.js';
 import { CreateUserDTO } from './dtos/createUser.dto.js';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { TokenPayloadParam } from '../auth/utils/param/token-payload.param.js';
+import { PayloadDTO } from '../auth/dto/payload.dto.js';
+import { AuthToken } from '../auth/guard/auth.guard.js';
 
 @Controller('user')
 export class UserController {
@@ -37,5 +44,11 @@ export class UserController {
     foto?: Express.Multer.File,
   ) {
     return this.service.create_user(data, foto);
+  }
+
+  @UseGuards(AuthToken)
+  @Get(":id")
+  get_user(@Param("id", ParseIntPipe) id: number, @TokenPayloadParam() token: PayloadDTO) {
+    return this.service.get_user(id, token)
   }
 }
