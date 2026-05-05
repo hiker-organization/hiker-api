@@ -1,4 +1,9 @@
-import { ConflictException, HttpStatus, Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  HttpStatus,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateUserDTO } from './dtos/createUser.dto.js';
 import { create_response } from '../../common/helpers/create-response.helper.js';
@@ -7,6 +12,8 @@ import path from 'node:path';
 import { mkdir } from 'node:fs/promises';
 import { HashingService } from '../../common/services/hash.service.js';
 import { randomUUID } from 'node:crypto';
+import { PayloadDTO } from '../auth/dto/payload.dto.js';
+import { get_response } from '../../common/helpers/get-response.helper.js';
 
 @Injectable()
 export class UserService {
@@ -59,6 +66,10 @@ export class UserService {
       HttpStatus.CREATED,
     );
   }
+  async get_user(id: number, token: PayloadDTO) {
+    const user = await this.get_user_with_full_data(id);
+    return get_response('Perfil do usuário abaixo', user, 200);
+  }
 
   private async email_empty_or_fail(email: string): Promise<boolean> {
     const user = await this.prisma.usuario.findUnique({
@@ -86,5 +97,44 @@ export class UserService {
     if (user) throw new ConflictException('numero de celular já cadastrado.');
 
     return true;
+  }
+  private async get_user_with_full_data(id: number) {
+    const user = await this.prisma.usuario.findUnique({
+      where: { id: id },
+      select: {
+        foto_url: true,
+        nome_exibicao: true,
+        nome_usuario: true,
+        reputacao: true,
+        reviews: {
+          where: { oculto: false },
+          select: {
+            fotos: true,
+            local: true,
+            nota: true,
+            descricao: true,
+            qnt_dislikes: true,
+            qnt_likes: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+
+    if (!user) throw new NotFoundException('Usuário não encontrado.');
+
+    return {
+      ...user,
+      foto_url: user.foto_url
+        ? `${process.env.API_STATIC_USER}${user.foto_url}`
+        : null,
+      reviews: user.reviews.map((review) => ({
+        ...review,
+        fotos: review.fotos.map((foto) => ({
+          ...foto,
+          url: `${process.env.API_STATIC_REVIEWS}${foto.url}`,
+        })),
+      })),
+    };
   }
 }
