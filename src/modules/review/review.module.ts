@@ -8,6 +8,6 @@ import { FileService } from '../../common/services/file.service.js';
 @Module({
   imports: [AuthModule, PrismaModule],
   controllers: [ReviewController],
-  providers: [ReviewService, FileService]
+  providers: [ReviewService, FileService],
 })
 export class ReviewModule {}

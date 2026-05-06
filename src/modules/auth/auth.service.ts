@@ -1,4 +1,13 @@
+<<<<<<< HEAD
 import { BadRequestException, Injectable, UnauthorizedException} from '@nestjs/common';
+=======
+import {
+  BadRequestException,
+  HttpStatus,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
+>>>>>>> develop
 import { LoginDTO } from './dto/login.dto.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { JwtService } from '@nestjs/jwt';
@@ -19,7 +28,11 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly emailService: EmailService,
   ) {}
+<<<<<<< HEAD
   
+=======
+
+>>>>>>> develop
   async login(loginDto: LoginDTO) {
     const user = await this.prisma.usuario.findUnique({
       where: { email: loginDto.email },
@@ -43,7 +56,11 @@ export class AuthService {
       email: user.email,
     });
 
+<<<<<<< HEAD
     return login_response("logado com sucesso.", accessToken)
+=======
+    return login_response('logado com sucesso.', accessToken, HttpStatus.OK);
+>>>>>>> develop
   }
 
   async forgot_password(forgotPasswordDto: ForgotPasswordDTO) {
@@ -55,6 +72,7 @@ export class AuthService {
       return create_response(
         'Se existir uma conta com esse email, um link de recuperação será enviado.',
         null,
+        HttpStatus.ACCEPTED,
       );
     }
 
@@ -81,6 +99,10 @@ export class AuthService {
 
     return message_response(
       'Se existir uma conta com esse email, um link de recuperação será enviado.',
+<<<<<<< HEAD
+=======
+      HttpStatus.OK,
+>>>>>>> develop
     );
   }
 
@@ -108,7 +130,11 @@ export class AuthService {
       }),
     ]);
 
+<<<<<<< HEAD
     return message_response('Senha redefinida com sucesso!');
+=======
+    return message_response('Senha redefinida com sucesso!', HttpStatus.OK);
+>>>>>>> develop
   }
 
   private hash_reset_token(token: string): string {

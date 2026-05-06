@@ -5,4 +5,8 @@ export class PayloadDTO {
   public exp!: number;
   public aud!: string;
   public iss!: string;
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> develop
