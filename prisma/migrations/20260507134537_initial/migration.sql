@@ -67,7 +67,8 @@ CREATE TABLE "Tag_review" (
 
 -- CreateTable
 CREATE TABLE "Token_redefinicao_senha" (
-    "id" TEXT NOT NULL,
+    "id" SERIAL NOT NULL,
+    "token" TEXT NOT NULL,
     "expira_em" TIMESTAMP(3) NOT NULL,
     "id_usuario" INTEGER NOT NULL,
 

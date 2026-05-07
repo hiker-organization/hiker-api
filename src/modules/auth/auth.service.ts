@@ -10,8 +10,7 @@ import { JwtService } from '@nestjs/jwt';
 import { EmailService } from '../../common/services/email.service.js';
 import { ForgotPasswordDTO } from './dto/forgot-password.dto.js';
 import { ResetPasswordDTO } from './dto/reset-password.dto.js';
-import { createHash, randomBytes } from 'node:crypto';
-import { create_response } from '../../common/helpers/create-response.helper.js';
+import { randomInt } from 'node:crypto';
 import { HashingService } from '../../common/services/hash.service.js';
 import { login_response } from '../../common/helpers/login-response.helper.js';
 import { message_response } from '../../common/helpers/message-response.helper.js';
@@ -24,7 +23,6 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly emailService: EmailService,
   ) {}
-
   async login(loginDto: LoginDTO) {
     const user = await this.prisma.usuario.findUnique({
       where: { email: loginDto.email },
@@ -57,33 +55,30 @@ export class AuthService {
     });
 
     if (!user) {
-      return create_response(
+      return message_response(
         'Se existir uma conta com esse email, um link de recuperação será enviado.',
-        null,
-        HttpStatus.ACCEPTED,
+        HttpStatus.OK,
       );
     }
 
-    const rawToken = randomBytes(32).toString('hex');
-    const tokenHash = this.hash_reset_token(rawToken);
+    const token = randomInt(100000, 1000000).toString();
     const expiresAt = new Date(Date.now() + 1000 * 60 * 15);
 
-    await this.prisma.token_redefinicao_senha.deleteMany({
-      where: { id_usuario: user.id },
-    });
+    await this.prisma.$transaction([
+      this.prisma.token_redefinicao_senha.deleteMany({
+        where: { id_usuario: user.id },
+      }),
 
-    await this.prisma.token_redefinicao_senha.create({
-      data: {
-        id: tokenHash,
-        expira_em: expiresAt,
-        id_usuario: user.id,
-      },
-    });
+     this.prisma.token_redefinicao_senha.create({
+        data: {
+          token,
+          expira_em: expiresAt,
+          id_usuario: user.id,
+        },
+      })
+    ]);
 
-    const frontendUrl = process.env.FRONTEND_URL;
-    const resetLink = `${frontendUrl}/reset-password?token=${rawToken}`;
-
-    await this.emailService.sendPasswordResetEmail(user.email, resetLink);
+    await this.emailService.sendPasswordResetEmail(user.email, token);
 
     return message_response(
       'Se existir uma conta com esse email, um link de recuperação será enviado.',
@@ -92,11 +87,16 @@ export class AuthService {
   }
 
   async reset_password(resetPasswordDto: ResetPasswordDTO) {
-    const tokenHash = this.hash_reset_token(resetPasswordDto.token);
+    const user = await this.prisma.usuario.findUnique({
+      where: { email: resetPasswordDto.email },
+    });
 
-    const token = await this.prisma.token_redefinicao_senha.findUnique({
-      where: { id: tokenHash },
-      include: { usuario: true },
+    if (!user) {
+      throw new BadRequestException('Token inválido ou expirado.');
+    }
+
+    const token = await this.prisma.token_redefinicao_senha.findFirst({
+      where: { token: resetPasswordDto.token, id_usuario: user.id },
     });
 
     if (!token || token.expira_em < new Date()) {
@@ -107,7 +107,7 @@ export class AuthService {
 
     await this.prisma.$transaction([
       this.prisma.usuario.update({
-        where: { id: token.id_usuario },
+        where: { id: user.id },
         data: { senha: senhaHash },
       }),
       this.prisma.token_redefinicao_senha.delete({
@@ -116,9 +116,5 @@ export class AuthService {
     ]);
 
     return message_response('Senha redefinida com sucesso!', HttpStatus.OK);
-  }
-
-  private hash_reset_token(token: string): string {
-    return createHash('sha256').update(token).digest('hex');
   }
 }

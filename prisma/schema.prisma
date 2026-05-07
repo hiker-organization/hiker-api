@@ -79,9 +79,10 @@ model Tag_review {
 
 
 model Token_redefinicao_senha {
-  id            String    @id
+  id            Int         @id             @default(autoincrement())
+  token         String
   expira_em     DateTime
-  usuario       Usuario   @relation(fields: [id_usuario], references: [id], onDelete: Cascade)
+  usuario       Usuario     @relation(fields: [id_usuario], references: [id], onDelete: Cascade)
   id_usuario    Int
   
   @@index([id_usuario])
