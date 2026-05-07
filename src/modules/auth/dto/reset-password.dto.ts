@@ -1,8 +1,12 @@
-import { IsNotEmpty, IsString, IsStrongPassword } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsNumberString, IsStrongPassword, Length } from 'class-validator';
 
 export class ResetPasswordDTO {
-  @IsString()
+  @IsEmail({}, { message: 'Email inválido.' })
   @IsNotEmpty()
+  email!: string;
+
+  @IsNumberString({}, { message: 'O código deve conter apenas números.' })
+  @Length(6, 6, { message: 'O código deve ter exatamente 6 dígitos.' })
   token!: string;
 
   @IsStrongPassword(

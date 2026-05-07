@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateReviewDTO } from './dtos/create-review.dto.js';
+import { GetReviewsQueryDTO } from './dtos/get-reviews-query.dto.js';
 import { PayloadDTO } from '../auth/dto/payload.dto.js';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -106,9 +107,12 @@ export class ReviewService {
     });
   }
 
-  async get_reviews() {
-    const reviews = await this.find_reviews_with_full_content();
-    return get_response('reviews disponíveis', reviews, HttpStatus.OK);
+  async get_reviews(query: GetReviewsQueryDTO) {
+    const { data, nextCursor } = await this.find_reviews_with_full_content(query);
+    return {
+      ...get_response('reviews disponíveis', data, HttpStatus.OK),
+      nextCursor,
+    };
   }
 
   async get_review(id: number) {
@@ -173,9 +177,19 @@ export class ReviewService {
     };
   }
 
-  private async find_reviews_with_full_content() {
+  private async find_reviews_with_full_content(query: GetReviewsQueryDTO) {
+    const limit = query.limit ?? 20;
     const reviews = await this.prisma.review.findMany({
+      take: limit + 1,
+      skip: query.cursor ? 1 : 0,
+      ...(query.cursor && {
+        cursor: { id: query.cursor },
+      }),
+      orderBy: {
+        id: 'desc',
+      },
       select: {
+        id: true,
         descricao: true,
         local: true,
         qnt_likes: true,
@@ -200,21 +214,29 @@ export class ReviewService {
         },
       },
     });
-    if (!reviews || reviews.length == 0)
+
+    if (reviews.length === 0)
       throw new NotFoundException('nenhuma review encontrada no momento.');
 
-    return reviews.map((review) => ({
-      ...review,
-      fotos: review.fotos.map((foto) => ({
-        url: `${process.env.API_STATIC_REVIEWS}${foto.url}`,
+    const hasNextPage = reviews.length > limit;
+    const data = hasNextPage ? reviews.slice(0, limit) : reviews;
+    const nextCursor = hasNextPage ? data[data.length - 1].id : null;
+
+    return {
+      data: data.map((review) => ({
+        ...review,
+        fotos: review.fotos.map((foto) => ({
+          url: `${process.env.API_STATIC_REVIEWS}${foto.url}`,
+        })),
+        autor: {
+          ...review.autor,
+          foto_url: review.autor.foto_url
+            ? `${process.env.API_STATIC_USER}${review.autor.foto_url}`
+            : null,
+        },
       })),
-      autor: {
-        ...review.autor,
-        foto_url: review.autor.foto_url
-          ? `${process.env.API_STATIC_USER}${review.autor.foto_url}`
-          : null,
-      },
-    }));
+      nextCursor,
+    }
   }
 
   private async find_user_review(id: number, token: PayloadDTO) {
