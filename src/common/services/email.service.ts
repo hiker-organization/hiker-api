@@ -39,16 +39,17 @@ export class EmailService {
     });
   }
 
-  async sendPasswordResetEmail(to: string, resetLink: string): Promise<void> {
+  async sendPasswordResetEmail(to: string, token: string): Promise<void> {
     await this.sendMail({
       to,
       subject: 'Redefinição de senha',
-      text: `Você solicitou a redefinição de senha. Acesse: ${resetLink}`,
+      text: 'Você solicitou a redefinição de senha.',
       html: `
         <div style="font-family: Arial, sans-serif; line-height: 1.5">
           <h2>Redefinição de senha</h2>
           <p>Você solicitou a redefinição de senha da sua conta.</p>
-          <p><a href="${resetLink}">Clique aqui para redefinir sua senha</a></p>
+          <p>Digite o código para redefiní-la</p>
+          <p style="font-size: 24px; text-align: center">${token}</p>
           <p>Se você não solicitou isso, ignore este email.</p>
         </div>
       `,

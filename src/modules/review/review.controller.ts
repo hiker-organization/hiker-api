@@ -11,12 +11,14 @@ import {
   UploadedFiles,
   UseGuards,
   UseInterceptors,
+  Query
 } from '@nestjs/common';
 import { ReviewService } from './review.service.js';
 import { AuthToken } from '../auth/guard/auth.guard.js';
 import { TokenPayloadParam } from '../auth/utils/param/token-payload.param.js';
 import { PayloadDTO } from '../auth/dto/payload.dto.js';
 import { CreateReviewDTO } from './dtos/create-review.dto.js';
+import { GetReviewsQueryDTO } from './dtos/get-reviews-query.dto.js';
 import { FilesInterceptor } from '@nestjs/platform-express';
 
 @Controller('review')
@@ -50,8 +52,8 @@ export class ReviewController {
   }
 
   @Get()
-  get_reviews() {
-    return this.service.get_reviews();
+  get_reviews(@Query() query: GetReviewsQueryDTO) {
+    return this.service.get_reviews(query);
   }
 
   @Get('/:id')
@@ -60,7 +62,7 @@ export class ReviewController {
   }
 
   @UseGuards(AuthToken)
-  @Delete('/delete/:id')
+  @Delete('/:id')
   delete_review(
     @Param('id', ParseIntPipe) id: number,
     @TokenPayloadParam() token: PayloadDTO,
