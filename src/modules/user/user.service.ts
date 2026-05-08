@@ -14,6 +14,8 @@ import { HashingService } from '../../common/services/hash.service.js';
 import { randomUUID } from 'node:crypto';
 import { PayloadDTO } from '../auth/dto/payload.dto.js';
 import { get_response } from '../../common/helpers/get-response.helper.js';
+import { UpdateUserDTO } from './dtos/updateUser.dto.js';
+import { message_response } from '../../common/helpers/message-response.helper.js';
 
 @Injectable()
 export class UserService {
@@ -70,7 +72,52 @@ export class UserService {
     const user = await this.get_user_with_full_data(id);
     return get_response('Perfil do usuário abaixo', user, 200);
   }
+  async update_user(data: UpdateUserDTO, token: PayloadDTO, foto?: Express.Multer.File) {
+    const user = await this.find_user_or_fail(token.sub)
 
+    data.nome_usuario = data.nome_usuario ? `@${data.nome_usuario}` : undefined
+
+    if(foto) {
+      const extName = path
+        .extname(foto?.originalname)
+        .toLowerCase()
+        .substring(1);
+
+      if(user.foto_url) {
+        const oldUrl = user.foto_url
+        const pathUrl = path.resolve(process.cwd(), 'imgs/user', oldUrl)
+        await this.fileService.deleteFile(pathUrl)
+      }
+      
+      const fileName = `${randomUUID()}.${extName}`;
+
+      const pathMaster = path.resolve(process.cwd(), 'imgs/user', fileName);
+      const dirPath = path.dirname(pathMaster);
+
+      await mkdir(dirPath, { recursive: true });
+      
+      await this.fileService.writeFile(pathMaster, foto.buffer);
+
+      data.foto_url = fileName;
+    }
+
+    await this.prisma.usuario.update(
+      {
+        where: { id: user.id },
+        data: {
+          ...data
+        }
+      }
+    )
+
+    return message_response("Alterado com sucesso.", 200)
+  }
+
+  private async find_user_or_fail(id: number) {
+    const user = await this.prisma.usuario.findUnique({where: { id: id }})
+    if(!user) throw new NotFoundException("Usuário não encontrado.")
+    return user
+  }
   private async email_empty_or_fail(email: string): Promise<boolean> {
     const user = await this.prisma.usuario.findUnique({
       where: { email: email },
