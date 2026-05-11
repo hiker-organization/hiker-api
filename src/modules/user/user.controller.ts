@@ -5,6 +5,7 @@ import {
   Param,
   ParseFilePipeBuilder,
   ParseIntPipe,
+  Patch,
   Post,
   UnprocessableEntityException,
   UploadedFile,
@@ -17,6 +18,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { TokenPayloadParam } from '../auth/utils/param/token-payload.param.js';
 import { PayloadDTO } from '../auth/dto/payload.dto.js';
 import { AuthToken } from '../auth/guard/auth.guard.js';
+import { UpdateUserDTO } from './dtos/updateUser.dto.js';
 
 @Controller('user')
 export class UserController {
@@ -44,6 +46,33 @@ export class UserController {
     foto?: Express.Multer.File,
   ) {
     return this.service.create_user(data,foto);
+  }
+
+  @UseGuards(AuthToken)
+  @Patch()
+  @UseInterceptors(FileInterceptor('foto'))
+  update_user(
+    @Body() data: UpdateUserDTO,
+    @TokenPayloadParam()
+    token: PayloadDTO,
+    @UploadedFile(
+      new ParseFilePipeBuilder()
+        .addFileTypeValidator({
+          fileType: /jpeg|jpg|png/g,
+          errorMessage: 'imagem precisa estar em jpeg ou jpg ou png.',
+        })
+        .addMaxSizeValidator({
+          maxSize: 1 * (1024 * 1024),
+          errorMessage: 'imagem excede tamanho permitido.',
+        })
+        .build({
+          fileIsRequired: false,
+          exceptionFactory: (error) => new UnprocessableEntityException(error),
+        }),
+    )
+    foto?: Express.Multer.File
+  ) {
+    return this.service.update_user(data, token, foto)
   }
 
   @UseGuards(AuthToken)
