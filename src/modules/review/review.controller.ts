@@ -11,7 +11,7 @@ import {
   UploadedFiles,
   UseGuards,
   UseInterceptors,
-  Query
+  Query,
 } from '@nestjs/common';
 import { ReviewService } from './review.service.js';
 import { AuthToken } from '../auth/guard/auth.guard.js';
@@ -68,5 +68,23 @@ export class ReviewController {
     @TokenPayloadParam() token: PayloadDTO,
   ) {
     return this.service.delete_review(id, token);
+  }
+
+  @UseGuards(AuthToken)
+  @Post('/:id/like')
+  like_review(
+    @Param('id', ParseIntPipe) id: number,
+    @TokenPayloadParam() token: PayloadDTO,
+  ) {
+    return this.service.like_review(id, token);
+  }
+
+  @UseGuards(AuthToken)
+  @Post('/:id/dislike')
+  dislike_review(
+    @Param('id', ParseIntPipe) id: number,
+    @TokenPayloadParam() token: PayloadDTO,
+  ) {
+    return this.service.dislike_review(id, token);
   }
 }
