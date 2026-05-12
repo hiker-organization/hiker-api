@@ -108,7 +108,8 @@ export class ReviewService {
   }
 
   async get_reviews(query: GetReviewsQueryDTO) {
-    const { data, nextCursor } = await this.find_reviews_with_full_content(query);
+    const { data, nextCursor } =
+      await this.find_reviews_with_full_content(query);
     return {
       ...get_response('reviews disponíveis', data, HttpStatus.OK),
       nextCursor,
@@ -133,9 +134,134 @@ export class ReviewService {
     return message_response('Review excluída com sucesso.', HttpStatus.OK);
   }
 
+  async like_review(id: number, token: PayloadDTO) {
+    return await this.prisma.$transaction(async (lk) => {
+      const review = await lk.review.findUnique({
+        where: { id: id },
+        select: { id_usuario: true },
+      });
+
+      if (!review) throw new NotFoundException('Review não encontrada.');
+
+      const old_interaction = await lk.voto_review.findUnique({
+        where: {
+          id_usuario_id_review: { id_review: id, id_usuario: token.sub },
+        },
+      });
+
+      if (!old_interaction) {
+        await lk.voto_review.create({
+          data: { tipo: 'LIKE', id_review: id, id_usuario: token.sub },
+        });
+
+        await lk.review.update({
+          where: { id: id },
+          data: { qnt_likes: { increment: 1 } },
+        });
+      }
+
+      if (old_interaction?.tipo == 'LIKE') {
+        return message_response('Você já curtiu esta publicação.', 400);
+      }
+
+      if (old_interaction?.tipo == 'DISLIKE') {
+        await lk.voto_review.update({
+          where: {
+            id_usuario_id_review: { id_review: id, id_usuario: token.sub },
+          },
+          data: { tipo: 'LIKE' },
+        });
+
+        await lk.review.update({
+          where: { id: id },
+          data: { qnt_dislikes: { decrement: 1 }, qnt_likes: { increment: 1 } },
+        });
+      }
+
+      await this.calc_reputation(review.id_usuario, lk);
+
+      return message_response('ação realizada com sucesso.', 200);
+    });
+  }
+
+  async dislike_review(id: number, token: PayloadDTO) {
+    return await this.prisma.$transaction(async (dlk) => {
+      const review = await dlk.review.findUnique({
+        where: { id: id },
+        select: { id_usuario: true },
+      });
+
+      if (!review) throw new NotFoundException('Review não encontrada.');
+
+      const old_interaction = await dlk.voto_review.findUnique({
+        where: {
+          id_usuario_id_review: { id_review: id, id_usuario: token.sub },
+        },
+      });
+
+      if (!old_interaction) {
+        await dlk.voto_review.create({
+          data: { tipo: 'DISLIKE', id_review: id, id_usuario: token.sub },
+        });
+
+        await dlk.review.update({
+          where: { id: id },
+          data: { qnt_dislikes: { increment: 1 } },
+        });
+      }
+
+      if (old_interaction?.tipo == 'DISLIKE') {
+        return message_response('você já não curtiu a publicação.', 400);
+      }
+
+      if (old_interaction?.tipo == 'LIKE') {
+        await dlk.voto_review.update({
+          where: {
+            id_usuario_id_review: { id_review: id, id_usuario: token.sub },
+          },
+          data: { tipo: 'DISLIKE' },
+        });
+
+        await dlk.review.update({
+          where: { id: id },
+          data: { qnt_likes: { decrement: 1 }, qnt_dislikes: { increment: 1 } },
+        });
+      }
+
+      await this.calc_reputation(review.id_usuario, dlk);
+
+      return message_response('ação realizada com sucesso.', 200);
+    });
+  }
+
+  private async calc_reputation(id_user: number, tx?: any) {
+    const prismaClient = tx || this.prisma;
+
+    const reviews = await prismaClient.review.findMany({
+      where: { id_usuario: id_user },
+      select: {
+        qnt_likes: true,
+        qnt_dislikes: true,
+      },
+    });
+
+    const totalLikes = reviews.reduce((sum, r) => sum + r.qnt_likes, 0);
+    const totalDislikes = reviews.reduce((sum, r) => sum + r.qnt_dislikes, 0);
+
+    let reputacao =
+      totalLikes > 0 ? ((totalLikes - totalDislikes) / totalLikes) * 10 : 0;
+
+    if (reputacao < 0) reputacao = 0;
+
+    await prismaClient.usuario.update({
+      where: { id: id_user },
+      data: { reputacao: reputacao },
+    });
+  }
+
   private async find_one_review_with_full_content(id: number) {
     const review = await this.prisma.review.findUnique({
-      where: { id: id },
+      where: { id: id, oculto: false },
       select: {
         descricao: true,
         local: true,
@@ -188,6 +314,7 @@ export class ReviewService {
       orderBy: {
         id: 'desc',
       },
+      where: { oculto: false },
       select: {
         id: true,
         descricao: true,
@@ -236,7 +363,7 @@ export class ReviewService {
         },
       })),
       nextCursor,
-    }
+    };
   }
 
   private async find_user_review(id: number, token: PayloadDTO) {

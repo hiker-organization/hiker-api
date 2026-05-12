@@ -24,6 +24,7 @@ model Usuario {
   reviews         Review[]
   denuncias       Denuncia[]
   tokens          Token_redefinicao_senha[]
+  interacoes      Voto_review[]
 }
 
 model Review {
@@ -45,9 +46,27 @@ model Review {
   
   fotos       Foto[]
   tags        Tag_review[]
+  interacoes  Voto_review[]
 
   @@index([id_usuario])
   @@index([id_local])
+}
+
+model Voto_review {
+  id              Int         @id             @default(autoincrement())
+  id_usuario      Int
+  id_review       Int
+  tipo            Tipo_voto
+  
+  createdAt       DateTime                    @default(now())
+  updateAt        DateTime    @updatedAt
+
+  usuario     Usuario     @relation(fields: [id_usuario], references: [id], onDelete: Cascade)
+  review      Review      @relation(fields: [id_review], references: [id], onDelete: Cascade)
+
+  @@unique([id_usuario, id_review])
+  @@index([id_usuario])
+  @@index([id_review])
 }
 
 model Foto {
@@ -105,4 +124,9 @@ model Denuncia {
 enum Role {
   USER
   ADM
+}
+
+enum Tipo_voto {
+  LIKE
+  DISLIKE
 }
