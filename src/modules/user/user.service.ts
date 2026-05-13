@@ -72,51 +72,53 @@ export class UserService {
     const user = await this.get_user_with_full_data(id);
     return get_response('Perfil do usuário abaixo', user, 200);
   }
-  async update_user(data: UpdateUserDTO, token: PayloadDTO, foto?: Express.Multer.File) {
-    const user = await this.find_user_or_fail(token.sub)
+  async update_user(
+    data: UpdateUserDTO,
+    token: PayloadDTO,
+    foto?: Express.Multer.File,
+  ) {
+    const user = await this.find_user_or_fail(token.sub);
 
-    data.nome_usuario = data.nome_usuario ? `@${data.nome_usuario}` : undefined
+    data.nome_usuario = data.nome_usuario ? `@${data.nome_usuario}` : undefined;
 
-    if(foto) {
+    if (foto) {
       const extName = path
         .extname(foto?.originalname)
         .toLowerCase()
         .substring(1);
 
-      if(user.foto_url) {
-        const oldUrl = user.foto_url
-        const pathUrl = path.resolve(process.cwd(), 'imgs/user', oldUrl)
-        await this.fileService.deleteFile(pathUrl)
+      if (user.foto_url) {
+        const oldUrl = user.foto_url;
+        const pathUrl = path.resolve(process.cwd(), 'imgs/user', oldUrl);
+        await this.fileService.deleteFile(pathUrl);
       }
-      
+
       const fileName = `${randomUUID()}.${extName}`;
 
       const pathMaster = path.resolve(process.cwd(), 'imgs/user', fileName);
       const dirPath = path.dirname(pathMaster);
 
       await mkdir(dirPath, { recursive: true });
-      
+
       await this.fileService.writeFile(pathMaster, foto.buffer);
 
       data.foto_url = fileName;
     }
 
-    await this.prisma.usuario.update(
-      {
-        where: { id: user.id },
-        data: {
-          ...data
-        }
-      }
-    )
+    await this.prisma.usuario.update({
+      where: { id: user.id },
+      data: {
+        ...data,
+      },
+    });
 
-    return message_response("Alterado com sucesso.", 200)
+    return message_response('Alterado com sucesso.', 200);
   }
 
   private async find_user_or_fail(id: number) {
-    const user = await this.prisma.usuario.findUnique({where: { id: id }})
-    if(!user) throw new NotFoundException("Usuário não encontrado.")
-    return user
+    const user = await this.prisma.usuario.findUnique({ where: { id: id } });
+    if (!user) throw new NotFoundException('Usuário não encontrado.');
+    return user;
   }
   private async email_empty_or_fail(email: string): Promise<boolean> {
     const user = await this.prisma.usuario.findUnique({
@@ -156,7 +158,7 @@ export class UserService {
         reviews: {
           where: { oculto: false },
           select: {
-            fotos: true,
+            fotos: { select: { url: true } },
             local: true,
             nota: true,
             descricao: true,

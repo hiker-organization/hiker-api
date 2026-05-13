@@ -69,13 +69,13 @@ export class AuthService {
         where: { id_usuario: user.id },
       }),
 
-     this.prisma.token_redefinicao_senha.create({
+      this.prisma.token_redefinicao_senha.create({
         data: {
           token,
           expira_em: expiresAt,
           id_usuario: user.id,
         },
-      })
+      }),
     ]);
 
     await this.emailService.sendPasswordResetEmail(user.email, token);

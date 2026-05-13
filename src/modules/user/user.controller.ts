@@ -45,7 +45,7 @@ export class UserController {
     )
     foto?: Express.Multer.File,
   ) {
-    return this.service.create_user(data,foto);
+    return this.service.create_user(data, foto);
   }
 
   @UseGuards(AuthToken)
@@ -70,9 +70,9 @@ export class UserController {
           exceptionFactory: (error) => new UnprocessableEntityException(error),
         }),
     )
-    foto?: Express.Multer.File
+    foto?: Express.Multer.File,
   ) {
-    return this.service.update_user(data, token, foto)
+    return this.service.update_user(data, token, foto);
   }
 
   @UseGuards(AuthToken)
