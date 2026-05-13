@@ -16,6 +16,7 @@ import { PayloadDTO } from '../auth/dto/payload.dto.js';
 import { get_response } from '../../common/helpers/get-response.helper.js';
 import { UpdateUserDTO } from './dtos/updateUser.dto.js';
 import { message_response } from '../../common/helpers/message-response.helper.js';
+import { UpdatePasswordDTO } from './dtos/updatePassword.dto.js';
 
 @Injectable()
 export class UserService {
@@ -72,6 +73,7 @@ export class UserService {
     const user = await this.get_user_with_full_data(id);
     return get_response('Perfil do usuário abaixo', user, 200);
   }
+
   async update_user(
     data: UpdateUserDTO,
     token: PayloadDTO,
@@ -113,6 +115,23 @@ export class UserService {
     });
 
     return message_response('Alterado com sucesso.', 200);
+  }
+
+  async update_password(data: UpdatePasswordDTO, token: PayloadDTO) {
+    const user = await this.find_user_or_fail(token.sub);
+
+    if(!(await this.hashService.compare(data.senha_atual, user.senha))){
+      throw new ConflictException('Senha atual incorreta.');
+    }
+
+    const hash = await this.hashService.hash(data.senha_nova);
+
+    await this.prisma.usuario.update({
+      where: { id: user.id },
+      data: { senha: hash },
+    });
+
+    return message_response('Senha alterada com sucesso.', 200);
   }
 
   private async find_user_or_fail(id: number) {

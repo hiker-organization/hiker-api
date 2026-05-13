@@ -19,6 +19,7 @@ import { TokenPayloadParam } from '../auth/utils/param/token-payload.param.js';
 import { PayloadDTO } from '../auth/dto/payload.dto.js';
 import { AuthToken } from '../auth/guard/auth.guard.js';
 import { UpdateUserDTO } from './dtos/updateUser.dto.js';
+import { UpdatePasswordDTO } from './dtos/updatePassword.dto.js';
 
 @Controller('user')
 export class UserController {
@@ -49,7 +50,7 @@ export class UserController {
   }
 
   @UseGuards(AuthToken)
-  @Patch()
+  @Patch("change-data")
   @UseInterceptors(FileInterceptor('foto'))
   update_user(
     @Body() data: UpdateUserDTO,
@@ -82,5 +83,14 @@ export class UserController {
     @TokenPayloadParam() token: PayloadDTO,
   ) {
     return this.service.get_user(id, token);
+  }
+
+  @UseGuards(AuthToken)
+  @Patch('change-password')
+  update_password(
+    @Body() data: UpdatePasswordDTO,
+    @TokenPayloadParam() token: PayloadDTO,
+  ) {
+    return this.service.update_password(data, token);
   }
 }
