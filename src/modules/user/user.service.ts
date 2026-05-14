@@ -11,7 +11,7 @@ import { FileService } from '../../common/services/file.service.js';
 import path from 'node:path';
 import { mkdir } from 'node:fs/promises';
 import { HashingService } from '../../common/services/hash.service.js';
-import { randomUUID } from 'node:crypto';
+import { getRandomValues, randomUUID } from 'node:crypto';
 import { PayloadDTO } from '../auth/dto/payload.dto.js';
 import { get_response } from '../../common/helpers/get-response.helper.js';
 import { UpdateUserDTO } from './dtos/updateUser.dto.js';
@@ -69,9 +69,15 @@ export class UserService {
       HttpStatus.CREATED,
     );
   }
-  async get_user(id: number, token: PayloadDTO) {
+
+  async get_user(id: number) {
     const user = await this.get_user_with_full_data(id);
     return get_response('Perfil do usuário abaixo', user, 200);
+  }
+
+  async get_me(token: PayloadDTO) {
+    const user = await this.get_user_with_full_data(token.sub);
+    return get_response('Seu perfil abaixo', user, 200);
   }
 
   async update_user(
@@ -120,7 +126,7 @@ export class UserService {
   async update_password(data: UpdatePasswordDTO, token: PayloadDTO) {
     const user = await this.find_user_or_fail(token.sub);
 
-    if(!(await this.hashService.compare(data.senha_atual, user.senha))){
+    if (!(await this.hashService.compare(data.senha_atual, user.senha))) {
       throw new ConflictException('Senha atual incorreta.');
     }
 

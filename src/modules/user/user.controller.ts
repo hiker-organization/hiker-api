@@ -50,7 +50,7 @@ export class UserController {
   }
 
   @UseGuards(AuthToken)
-  @Patch("change-data")
+  @Patch('change-data')
   @UseInterceptors(FileInterceptor('foto'))
   update_user(
     @Body() data: UpdateUserDTO,
@@ -77,12 +77,9 @@ export class UserController {
   }
 
   @UseGuards(AuthToken)
-  @Get(':id')
-  get_user(
-    @Param('id', ParseIntPipe) id: number,
-    @TokenPayloadParam() token: PayloadDTO,
-  ) {
-    return this.service.get_user(id, token);
+  @Get('/me')
+  get_me(@TokenPayloadParam() token: PayloadDTO) {
+    return this.service.get_me(token);
   }
 
   @UseGuards(AuthToken)
@@ -92,5 +89,10 @@ export class UserController {
     @TokenPayloadParam() token: PayloadDTO,
   ) {
     return this.service.update_password(data, token);
+  }
+
+  @Get(':id')
+  get_user(@Param('id', ParseIntPipe) id: number) {
+    return this.service.get_user(id);
   }
 }
