@@ -183,6 +183,7 @@ export class UserService {
         reviews: {
           where: { oculto: false },
           select: {
+            id: true,
             fotos: { select: { url: true } },
             local: true,
             nota: true,
