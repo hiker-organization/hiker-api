@@ -271,6 +271,7 @@ export class ReviewService {
         createdAt: true,
         autor: {
           select: {
+            id: true,
             nome_exibicao: true,
             foto_url: true,
             reputacao: true,
@@ -325,6 +326,7 @@ export class ReviewService {
         createdAt: true,
         autor: {
           select: {
+            id: true,
             nome_exibicao: true,
             foto_url: true,
             reputacao: true,
