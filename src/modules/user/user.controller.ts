@@ -91,8 +91,8 @@ export class UserController {
     return this.service.update_password(data, token);
   }
 
-  @Get(':id')
-  get_user(@Param('id', ParseIntPipe) id: number) {
-    return this.service.get_user(id);
+  @Get(':nick')
+  get_user(@Param('nick') nick: string) {
+    return this.service.get_user(nick);
   }
 }

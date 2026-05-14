@@ -70,8 +70,8 @@ export class UserService {
     );
   }
 
-  async get_user(id: number) {
-    const user = await this.get_user_with_full_data(id);
+  async get_user(nick: string) {
+    const user = await this.get_user_with_nick(nick);
     return get_response('Perfil do usuário abaixo', user, 200);
   }
 
@@ -175,6 +175,46 @@ export class UserService {
   private async get_user_with_full_data(id: number) {
     const user = await this.prisma.usuario.findUnique({
       where: { id: id },
+      select: {
+        foto_url: true,
+        nome_exibicao: true,
+        nome_usuario: true,
+        reputacao: true,
+        reviews: {
+          where: { oculto: false },
+          select: {
+            id: true,
+            fotos: { select: { url: true } },
+            local: true,
+            nota: true,
+            descricao: true,
+            qnt_dislikes: true,
+            qnt_likes: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+
+    if (!user) throw new NotFoundException('Usuário não encontrado.');
+
+    return {
+      ...user,
+      foto_url: user.foto_url
+        ? `${process.env.API_STATIC_USER}${user.foto_url}`
+        : null,
+      reviews: user.reviews.map((review) => ({
+        ...review,
+        fotos: review.fotos.map((foto) => ({
+          ...foto,
+          url: `${process.env.API_STATIC_REVIEWS}${foto.url}`,
+        })),
+      })),
+    };
+  }
+    private async get_user_with_nick(nick: string) {
+    const user = await this.prisma.usuario.findUnique({
+      where: { nome_usuario: nick },
       select: {
         foto_url: true,
         nome_exibicao: true,
