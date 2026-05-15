@@ -24,8 +24,8 @@ export class AuthService {
     private readonly emailService: EmailService,
   ) {}
   async login(loginDto: LoginDTO) {
-    const user = await this.prisma.usuario.findUnique({
-      where: { email: loginDto.email },
+    const user = await this.prisma.usuario.findFirst({
+      where: { email: loginDto.email, deletedAt: null },
     });
 
     if (!user) {
@@ -50,8 +50,8 @@ export class AuthService {
   }
 
   async forgot_password(forgotPasswordDto: ForgotPasswordDTO) {
-    const user = await this.prisma.usuario.findUnique({
-      where: { email: forgotPasswordDto.email },
+    const user = await this.prisma.usuario.findFirst({
+      where: { email: forgotPasswordDto.email, deletedAt: null },
     });
 
     if (!user) {
@@ -87,8 +87,8 @@ export class AuthService {
   }
 
   async reset_password(resetPasswordDto: ResetPasswordDTO) {
-    const user = await this.prisma.usuario.findUnique({
-      where: { email: resetPasswordDto.email },
+    const user = await this.prisma.usuario.findFirst({
+      where: { email: resetPasswordDto.email, deletedAt: null },
     });
 
     if (!user) {

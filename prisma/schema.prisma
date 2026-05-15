@@ -20,6 +20,7 @@ model Usuario {
   cargo                   Role        @default(USER)
   createdAt               DateTime    @default(now())
   updatedAt               DateTime    @updatedAt
+  deletedAt               DateTime?
 
   reviews         Review[]
   denuncias       Denuncia[]

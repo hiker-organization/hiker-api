@@ -1,10 +1,10 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseFilePipeBuilder,
-  ParseIntPipe,
   Patch,
   Post,
   UnprocessableEntityException,
@@ -80,6 +80,12 @@ export class UserController {
   @Get('/me')
   get_me(@TokenPayloadParam() token: PayloadDTO) {
     return this.service.get_me(token);
+  }
+
+  @UseGuards(AuthToken)
+  @Delete('delete-account')
+  delete_user(@TokenPayloadParam() token: PayloadDTO) {
+    return this.service.delete_user(token);
   }
 
   @UseGuards(AuthToken)

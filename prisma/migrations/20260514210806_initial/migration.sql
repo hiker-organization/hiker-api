@@ -18,6 +18,7 @@ CREATE TABLE "Usuario" (
     "cargo" "Role" NOT NULL DEFAULT 'USER',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "deletedAt" TIMESTAMP(3),
 
     CONSTRAINT "Usuario_pkey" PRIMARY KEY ("id")
 );
