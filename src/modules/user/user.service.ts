@@ -80,6 +80,7 @@ export class UserService {
       data: {
         deletedAt: new Date(),
         email: `${user.email}${suffix}`,
+        nome_exibicao: `Usuário desativado`,
         nome_usuario: `${user.nome_usuario}${suffix}`,
         numero_celular: `${user.numero_celular}${suffix}`,
       },
@@ -192,7 +193,7 @@ export class UserService {
   }
   private async get_user_with_full_data(id: number) {
     const user = await this.prisma.usuario.findUnique({
-      where: { id: id },
+      where: { id: id, deletedAt: null },
       select: {
         foto_url: true,
         nome_exibicao: true,
