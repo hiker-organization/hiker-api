@@ -127,6 +127,9 @@ CREATE UNIQUE INDEX "Voto_review_id_usuario_id_review_key" ON "Voto_review"("id_
 CREATE INDEX "Foto_id_review_idx" ON "Foto"("id_review");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "Tag_descritivo_key" ON "Tag"("descritivo");
+
+-- CreateIndex
 CREATE INDEX "Token_redefinicao_senha_id_usuario_idx" ON "Token_redefinicao_senha"("id_usuario");
 
 -- CreateIndex

@@ -200,9 +200,9 @@ export class UserService {
         nome_usuario: true,
         reputacao: true,
         reviews: {
-          where: { oculto: false },
           select: {
             id: true,
+            oculto: true,
             fotos: { select: { url: true } },
             local: true,
             nota: true,

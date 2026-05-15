@@ -82,7 +82,7 @@ model Foto {
 
 model Tag {
   id              Int         @id             @default(autoincrement())
-  descritivo      String
+  descritivo      String      @unique
   createdAt       DateTime                    @default(now())
 
   em_reviews      Tag_review[]
