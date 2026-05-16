@@ -5,6 +5,7 @@ import {
   IsOptional,
   IsString,
   MaxLength,
+  IsBoolean
 } from 'class-validator';
 
 export class CreateReviewDTO {
@@ -25,6 +26,9 @@ export class CreateReviewDTO {
   @IsInt()
   @IsNotEmpty({ message: 'nota é obrigatória.' })
   public nota!: number;
+  
+  @IsBoolean()
+  public oculto!: boolean;
 
   @IsOptional()
   @IsString({ each: true })
