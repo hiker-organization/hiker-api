@@ -70,6 +70,26 @@ export class UserService {
     );
   }
 
+  async delete_user(token: PayloadDTO) {
+    const user = await this.find_user_or_fail(token.sub);
+
+    const suffix = `_deleted_${user.id}`;
+
+    await this.prisma.usuario.update({
+      where: { id: user.id },
+      data: {
+        deletedAt: new Date(),
+        email: suffix,
+        nome_exibicao: `Usuário desativado`,
+        nome_usuario: suffix,
+        numero_celular: suffix,
+        data_nascimento: suffix,
+      },
+    });
+
+    return message_response('Conta desativada com sucesso.', 200);
+  }
+
   async get_user(nick: string) {
     const user = await this.get_user_with_nick(nick);
     return get_response('Perfil do usuário abaixo', user, 200);
@@ -141,13 +161,15 @@ export class UserService {
   }
 
   private async find_user_or_fail(id: number) {
-    const user = await this.prisma.usuario.findUnique({ where: { id: id } });
+    const user = await this.prisma.usuario.findFirst({
+      where: { id, deletedAt: null },
+    });
     if (!user) throw new NotFoundException('Usuário não encontrado.');
     return user;
   }
   private async email_empty_or_fail(email: string): Promise<boolean> {
-    const user = await this.prisma.usuario.findUnique({
-      where: { email: email },
+    const user = await this.prisma.usuario.findFirst({
+      where: { email, deletedAt: null },
     });
 
     if (user) throw new ConflictException('Email já existente.');
@@ -155,8 +177,8 @@ export class UserService {
     return true;
   }
   private async nick_empty_or_fail(nick: string): Promise<boolean> {
-    const user = await this.prisma.usuario.findUnique({
-      where: { nome_usuario: nick },
+    const user = await this.prisma.usuario.findFirst({
+      where: { nome_usuario: nick, deletedAt: null },
     });
 
     if (user) throw new ConflictException('Nome de usuário já existente.');
@@ -165,7 +187,7 @@ export class UserService {
   }
   private async numero_is_equal_fail(numero: string): Promise<boolean> {
     const user = await this.prisma.usuario.findFirst({
-      where: { numero_celular: numero },
+      where: { numero_celular: numero, deletedAt: null },
     });
 
     if (user) throw new ConflictException('numero de celular já cadastrado.');
@@ -174,16 +196,16 @@ export class UserService {
   }
   private async get_user_with_full_data(id: number) {
     const user = await this.prisma.usuario.findUnique({
-      where: { id: id },
+      where: { id: id, deletedAt: null },
       select: {
         foto_url: true,
         nome_exibicao: true,
         nome_usuario: true,
         reputacao: true,
         reviews: {
-          where: { oculto: false },
           select: {
             id: true,
+            oculto: true,
             fotos: { select: { url: true } },
             local: true,
             nota: true,
@@ -212,9 +234,9 @@ export class UserService {
       })),
     };
   }
-    private async get_user_with_nick(nick: string) {
-    const user = await this.prisma.usuario.findUnique({
-      where: { nome_usuario: nick },
+  private async get_user_with_nick(nick: string) {
+    const user = await this.prisma.usuario.findFirst({
+      where: { nome_usuario: nick, deletedAt: null },
       select: {
         foto_url: true,
         nome_exibicao: true,

@@ -27,7 +27,8 @@ export class CreateReviewDTO {
   public nota!: number;
 
   @IsOptional()
-  public tags?: number | number[];
+  @IsString({ each: true })
+  public tags?: string | string[];
 
   @IsOptional()
   public fotos?: string | string[];

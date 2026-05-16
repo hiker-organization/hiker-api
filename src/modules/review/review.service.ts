@@ -1,5 +1,10 @@
 import 'dotenv/config';
-import { HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  HttpStatus,
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateReviewDTO } from './dtos/create-review.dto.js';
 import { GetReviewsQueryDTO } from './dtos/get-reviews-query.dto.js';
@@ -49,12 +54,27 @@ export class ReviewService {
       );
     }
 
-    let tagsArray: number[] = [];
+    let tagsArray: string[] = [];
     if (data.tags) {
-      tagsArray = Array.isArray(data.tags) ? data.tags : [data.tags];
+      const raw = Array.isArray(data.tags) ? data.tags : [data.tags];
+      tagsArray = raw.map((t) => t.trim().toLowerCase()).filter(Boolean);
     }
 
     return await this.prisma.$transaction(async (rw) => {
+      const tagIds = await Promise.all(
+        tagsArray.map(async (descritivo) => {
+          let tag = await rw.tag.findUnique({ where: { descritivo } });
+          if (!tag) {
+            try {
+              tag = await rw.tag.create({ data: { descritivo } });
+            } catch {
+              tag = await rw.tag.findUnique({ where: { descritivo } });
+            }
+          }
+          return tag!.id;
+        }),
+      );
+
       const review = await rw.review.create({
         data: {
           id_local: data.local_id,
@@ -69,12 +89,8 @@ export class ReviewService {
                 }
               : undefined,
           tags:
-            tagsArray.length > 0
-              ? {
-                  create: tagsArray.map((id_tag) => ({
-                    id_tag: Number(id_tag),
-                  })),
-                }
+            tagIds.length > 0
+              ? { create: tagIds.map((id_tag) => ({ id_tag })) }
               : undefined,
         },
         select: {
@@ -232,6 +248,33 @@ export class ReviewService {
 
       return message_response('ação realizada com sucesso.', 200);
     });
+  }
+
+  async change_review_visibility(
+    id: number,
+    oculto: boolean,
+    token: PayloadDTO,
+  ) {
+    const review = await this.prisma.review.findUnique({
+      where: { id: id },
+    });
+
+    if (!review) throw new NotFoundException('Review não encontrada.');
+
+    if (review.id_usuario !== token.sub)
+      throw new ForbiddenException(
+        'Você não tem permissão para alterar a visibilidade desta review.',
+      );
+
+    await this.prisma.review.update({
+      where: { id: id },
+      data: { oculto: oculto },
+    });
+
+    return message_response(
+      'Visibilidade da review alterada com sucesso.',
+      HttpStatus.OK,
+    );
   }
 
   private async calc_reputation(id_user: number, tx?: any) {

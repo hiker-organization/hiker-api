@@ -6,12 +6,14 @@ import {
   Param,
   ParseFilePipeBuilder,
   ParseIntPipe,
+  ParseBoolPipe,
   Post,
   UnprocessableEntityException,
   UploadedFiles,
   UseGuards,
   UseInterceptors,
   Query,
+  Patch,
 } from '@nestjs/common';
 import { ReviewService } from './review.service.js';
 import { AuthToken } from '../auth/guard/auth.guard.js';
@@ -86,5 +88,15 @@ export class ReviewController {
     @TokenPayloadParam() token: PayloadDTO,
   ) {
     return this.service.dislike_review(id, token);
+  }
+
+  @UseGuards(AuthToken)
+  @Patch('/:id/visibility')
+  change_review_visibility(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('oculto', ParseBoolPipe) oculto: boolean,
+    @TokenPayloadParam() token: PayloadDTO,
+  ) {
+    return this.service.change_review_visibility(id, oculto, token);
   }
 }
