@@ -357,7 +357,9 @@ export class ReviewService {
       orderBy: {
         id: 'desc',
       },
-      where: { oculto: false },
+      where: {
+        oculto: false,
+        ...(query.local_id && { id_local: query.local_id }), },
       select: {
         id: true,
         descricao: true,
