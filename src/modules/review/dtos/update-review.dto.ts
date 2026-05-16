@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsInt,
   IsNotEmpty,
   IsOptional,
@@ -17,4 +18,8 @@ export class UpdateReviewDTO {
   @IsInt()
   @IsOptional({ message: 'nota é obrigatória.' })
   public nota!: number;
+
+  @IsBoolean()
+  @IsOptional()
+  public oculto?: boolean;
 }

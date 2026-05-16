@@ -57,7 +57,10 @@ export class ReviewService {
     let tagsArray: string[] = [];
     if (data.tags) {
       const raw = Array.isArray(data.tags) ? data.tags : [data.tags];
-      tagsArray = raw.map((t) => t.trim().toLowerCase()).filter(Boolean);
+      tagsArray = raw
+        .flatMap((t) => t.split(','))
+        .map((t) => t.trim().toLowerCase())
+        .filter(Boolean);
     }
 
     return await this.prisma.$transaction(async (rw) => {
@@ -80,6 +83,7 @@ export class ReviewService {
           id_local: data.local_id,
           local: data.local,
           descricao: data.descricao,
+          oculto: data.oculto,
           nota: data.nota,
           id_usuario: token.sub,
           fotos:
