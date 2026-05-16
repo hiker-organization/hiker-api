@@ -13,8 +13,4 @@ export class GetReviewsQueryDTO {
   @Min(1)
   @Max(50)
   limit?: number;
-
-  @IsOptional()
-  @IsString()
-  nome_usuario?: string;
 }

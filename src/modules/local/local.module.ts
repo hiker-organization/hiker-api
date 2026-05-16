@@ -4,6 +4,6 @@ import { LocalService } from './local.service.js';
 
 @Module({
   controllers: [LocalController],
-  providers: [LocalService]
+  providers: [LocalService],
 })
 export class LocalModule {}

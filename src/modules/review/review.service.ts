@@ -1,5 +1,10 @@
 import 'dotenv/config';
-import { HttpStatus, Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  HttpStatus,
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateReviewDTO } from './dtos/create-review.dto.js';
 import { GetReviewsQueryDTO } from './dtos/get-reviews-query.dto.js';
@@ -67,9 +72,9 @@ export class ReviewService {
             }
           }
           return tag!.id;
-        })
+        }),
       );
-      
+
       const review = await rw.review.create({
         data: {
           id_local: data.local_id,
@@ -83,10 +88,11 @@ export class ReviewService {
                   create: fotosUrls.map((url) => ({ url })),
                 }
               : undefined,
-          tags: tagIds.length > 0
-            ? { create: tagIds.map((id_tag) => ({ id_tag })) }
-            : undefined,
-          },
+          tags:
+            tagIds.length > 0
+              ? { create: tagIds.map((id_tag) => ({ id_tag })) }
+              : undefined,
+        },
         select: {
           descricao: true,
           local: true,
@@ -244,23 +250,31 @@ export class ReviewService {
     });
   }
 
-  async change_review_visibility(id: number, oculto: boolean, token: PayloadDTO) {
+  async change_review_visibility(
+    id: number,
+    oculto: boolean,
+    token: PayloadDTO,
+  ) {
     const review = await this.prisma.review.findUnique({
       where: { id: id },
     });
 
     if (!review) throw new NotFoundException('Review não encontrada.');
 
-    if (review.id_usuario !== token.sub) {
-      throw new ForbiddenException('Você não tem permissão para alterar a visibilidade desta review.');
-    }
+    if (review.id_usuario !== token.sub)
+      throw new ForbiddenException(
+        'Você não tem permissão para alterar a visibilidade desta review.',
+      );
 
     await this.prisma.review.update({
       where: { id: id },
       data: { oculto: oculto },
     });
 
-    return message_response('Visibilidade da review alterada com sucesso.', HttpStatus.OK);
+    return message_response(
+      'Visibilidade da review alterada com sucesso.',
+      HttpStatus.OK,
+    );
   }
 
   private async calc_reputation(id_user: number, tx?: any) {
@@ -343,7 +357,7 @@ export class ReviewService {
       orderBy: {
         id: 'desc',
       },
-      where: { oculto: false, ...(query.nome_usuario && { autor: { nome_usuario: query.nome_usuario } }) },
+      where: { oculto: false },
       select: {
         id: true,
         descricao: true,

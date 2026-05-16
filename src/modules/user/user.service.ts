@@ -79,10 +79,11 @@ export class UserService {
       where: { id: user.id },
       data: {
         deletedAt: new Date(),
-        email: `${user.email}${suffix}`,
+        email: suffix,
         nome_exibicao: `Usuário desativado`,
-        nome_usuario: `${user.nome_usuario}${suffix}`,
-        numero_celular: `${user.numero_celular}${suffix}`,
+        nome_usuario: suffix,
+        numero_celular: suffix,
+        data_nascimento: suffix,
       },
     });
 
@@ -160,7 +161,9 @@ export class UserService {
   }
 
   private async find_user_or_fail(id: number) {
-    const user = await this.prisma.usuario.findFirst({ where: { id, deletedAt: null } });
+    const user = await this.prisma.usuario.findFirst({
+      where: { id, deletedAt: null },
+    });
     if (!user) throw new NotFoundException('Usuário não encontrado.');
     return user;
   }
