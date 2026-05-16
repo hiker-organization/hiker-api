@@ -3,6 +3,10 @@ import { Type } from 'class-transformer';
 
 export class GetReviewsQueryDTO {
   @IsOptional()
+  @IsString()
+  local_id?: string;
+
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   cursor?: number;
