@@ -58,6 +58,14 @@ export class ReviewController {
     return this.service.get_reviews(query);
   }
 
+  @Get('/search/:local')
+  get_per_local(
+    @Param('local') local: string,
+    @Query() query: GetReviewsQueryDTO,
+  ) {
+    return this.service.get_local_reviews(local, query);
+  }
+
   @Get('/:id')
   get_review(@Param('id', ParseIntPipe) id: number) {
     return this.service.get_review(id);
