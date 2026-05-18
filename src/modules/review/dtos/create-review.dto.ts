@@ -1,10 +1,11 @@
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import {
   IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
   MaxLength,
+  IsBoolean,
 } from 'class-validator';
 
 export class CreateReviewDTO {
@@ -25,6 +26,15 @@ export class CreateReviewDTO {
   @IsInt()
   @IsNotEmpty({ message: 'nota é obrigatória.' })
   public nota!: number;
+
+  @Transform(({ value }) => {
+    if (value === 'true' || value === true) return true;
+    if (value === 'false' || value === false) return false;
+    return value;
+  })
+  @IsBoolean()
+  @IsNotEmpty({ message: 'informe a visibilidade da sua review.' })
+  public oculto!: boolean;
 
   @IsOptional()
   @IsString({ each: true })
