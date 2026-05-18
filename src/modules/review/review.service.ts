@@ -57,10 +57,14 @@ export class ReviewService {
     let tagsArray: string[] = [];
     if (data.tags) {
       const raw = Array.isArray(data.tags) ? data.tags : [data.tags];
-      tagsArray = raw
-        .flatMap((t) => t.split(','))
-        .map((t) => t.trim().toLowerCase())
-        .filter(Boolean);
+
+      raw.forEach((tags) => {
+        const tag = tags.split(',');
+
+        tagsArray.push(...tag);
+      });
+
+      tagsArray = tagsArray.map((t) => t.trim().toLowerCase()).filter(Boolean);
     }
 
     return await this.prisma.$transaction(async (rw) => {
@@ -139,6 +143,14 @@ export class ReviewService {
   async get_review(id: number) {
     const review = await this.find_one_review_with_full_content(id);
     return get_response('review encontrada.', review, HttpStatus.OK);
+  }
+
+  async get_local_reviews(local: string, query: GetReviewsQueryDTO) {
+    const { data, nextCursor } = await this.find_reviews_local(local, query);
+    return {
+      ...get_response('reviews disponíveis', data, HttpStatus.OK),
+      nextCursor,
+    };
   }
 
   async delete_review(id: number, token: PayloadDTO) {
@@ -361,9 +373,70 @@ export class ReviewService {
       orderBy: {
         id: 'desc',
       },
-      where: {
-        oculto: false,
-        ...(query.local_id && { id_local: query.local_id }), },
+      where: { oculto: false },
+      select: {
+        id: true,
+        descricao: true,
+        local: true,
+        qnt_likes: true,
+        qnt_dislikes: true,
+        nota: true,
+        createdAt: true,
+        autor: {
+          select: {
+            nome_exibicao: true,
+            foto_url: true,
+            reputacao: true,
+            nome_usuario: true,
+          },
+        },
+        fotos: { select: { url: true } },
+        tags: {
+          select: {
+            tag: {
+              select: { descritivo: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (reviews.length === 0)
+      throw new NotFoundException('nenhuma review encontrada no momento.');
+
+    const hasNextPage = reviews.length > limit;
+    const data = hasNextPage ? reviews.slice(0, limit) : reviews;
+    const nextCursor = hasNextPage ? data[data.length - 1].id : null;
+
+    return {
+      data: data.map((review) => ({
+        ...review,
+        fotos: review.fotos.map((foto) => ({
+          url: `${process.env.API_STATIC_REVIEWS}${foto.url}`,
+        })),
+        autor: {
+          ...review.autor,
+          foto_url: review.autor.foto_url
+            ? `${process.env.API_STATIC_USER}${review.autor.foto_url}`
+            : null,
+        },
+      })),
+      nextCursor,
+    };
+  }
+
+  private async find_reviews_local(local: string, query: GetReviewsQueryDTO) {
+    const limit = query.limit ?? 20;
+    const reviews = await this.prisma.review.findMany({
+      take: limit + 1,
+      skip: query.cursor ? 1 : 0,
+      ...(query.cursor && {
+        cursor: { id: query.cursor },
+      }),
+      orderBy: {
+        id: 'desc',
+      },
+      where: { oculto: false, id_local: local },
       select: {
         id: true,
         descricao: true,
