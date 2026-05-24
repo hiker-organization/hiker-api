@@ -138,6 +138,10 @@ export class UserService {
       data: {
         ...data,
       },
+      select: {
+        nome_exibicao: true,
+        foto_url: true,
+      },
     });
 
     return message_response('Alterado com sucesso.', 200);
