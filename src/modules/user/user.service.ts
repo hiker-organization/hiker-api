@@ -133,7 +133,7 @@ export class UserService {
       data.foto_url = fileName;
     }
 
-    await this.prisma.usuario.update({
+    const updatedUser = await this.prisma.usuario.update({
       where: { id: user.id },
       data: {
         ...data,
@@ -144,7 +144,7 @@ export class UserService {
       },
     });
 
-    return message_response('Alterado com sucesso.', 200);
+    return create_response('Alterado com sucesso.', updatedUser, 200);
   }
 
   async update_password(data: UpdatePasswordDTO, token: PayloadDTO) {
