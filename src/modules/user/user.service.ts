@@ -144,7 +144,12 @@ export class UserService {
       },
     });
 
-    return create_response('Alterado com sucesso.', updatedUser, 200);
+    return create_response('Alterado com sucesso.', {
+      ...updatedUser,
+      foto_url: updatedUser.foto_url
+        ? `${process.env.API_STATIC_USER}${updatedUser.foto_url}`
+        : null,
+    }, 200);
   }
 
   async update_password(data: UpdatePasswordDTO, token: PayloadDTO) {
