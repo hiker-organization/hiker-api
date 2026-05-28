@@ -219,7 +219,7 @@ export class UserService {
             local: true,
             nota: true,
             descricao: true,
-            tags: true,
+            tags: { select: { tag: { select: { descritivo: true } } } },
             qnt_dislikes: true,
             qnt_likes: true,
             createdAt: true,
