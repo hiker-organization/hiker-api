@@ -145,8 +145,8 @@ export class ReviewService {
     return get_response('review encontrada.', review, HttpStatus.OK);
   }
 
-  async get_local_reviews(local: string, query: GetReviewsQueryDTO) {
-    const { data, nextCursor } = await this.find_reviews_local(local, query);
+  async search_reviews(term: string, query: GetReviewsQueryDTO) {
+    const { data, nextCursor } = await this.find_reviews_search(term, query);
     return {
       ...get_response('reviews disponíveis', data, HttpStatus.OK),
       nextCursor,
@@ -425,8 +425,9 @@ export class ReviewService {
     };
   }
 
-  private async find_reviews_local(local: string, query: GetReviewsQueryDTO) {
+  private async find_reviews_search(term: string, query: GetReviewsQueryDTO) {
     const limit = query.limit ?? 20;
+    const search = term?.trim() ?? '';
     const reviews = await this.prisma.review.findMany({
       take: limit + 1,
       skip: query.cursor ? 1 : 0,
@@ -436,7 +437,19 @@ export class ReviewService {
       orderBy: {
         id: 'desc',
       },
-      where: { oculto: false, id_local: local },
+      where: {
+        oculto: false,
+        OR: [
+          { local: { contains: search, mode: 'insensitive' } },
+          {
+            tags: {
+              some: {
+                tag: { descritivo: { contains: search, mode: 'insensitive' } },
+              },
+            },
+          },
+        ],
+      },
       select: {
         id: true,
         descricao: true,
@@ -463,9 +476,6 @@ export class ReviewService {
         },
       },
     });
-
-    if (reviews.length === 0)
-      throw new NotFoundException('nenhuma review encontrada no momento.');
 
     const hasNextPage = reviews.length > limit;
     const data = hasNextPage ? reviews.slice(0, limit) : reviews;
