@@ -37,10 +37,11 @@ model Review {
   qnt_dislikes    Int         @default(0)
   qnt_denuncia    Int         @default(0)
   oculto          Boolean     @default(false)
-  nota            Int         @default(0)         
+  nota            Int         @default(0)
   descricao       String
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
+  deletedAt       DateTime?
 
   autor       Usuario    @relation(fields: [id_usuario], references: [id], onDelete: Restrict, onUpdate: Cascade) 
   denuncias   Denuncia[]

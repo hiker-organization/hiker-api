@@ -162,15 +162,11 @@ export class ReviewService {
   }
 
   async delete_review(id: number, token: PayloadDTO) {
-    const fotosUrls: string[] = [];
-    const review = await this.find_user_review(id, token);
-    review.fotos.forEach((foto) => {
-      fotosUrls.push(foto.url);
-    });
-    await this.prisma.review.delete({
+    await this.find_user_review(id, token);
+    await this.prisma.review.update({
       where: { id: id },
+      data: { deletedAt: new Date() },
     });
-    await this.remove_photos(fotosUrls);
     return message_response('Review excluída com sucesso.', HttpStatus.OK);
   }
 
@@ -328,7 +324,7 @@ export class ReviewService {
 
   private async find_one_review_with_full_content(id: number, userId: number) {
     const review = await this.prisma.review.findUnique({
-      where: { id: id, oculto: false },
+      where: { id: id, oculto: false, deletedAt: null },
       select: {
         descricao: true,
         local: true,
@@ -398,7 +394,7 @@ export class ReviewService {
       orderBy: {
         id: 'desc',
       },
-      where: { oculto: false },
+      where: { oculto: false, deletedAt: null },
       select: {
         id: true,
         descricao: true,
@@ -475,6 +471,7 @@ export class ReviewService {
       },
       where: {
         oculto: false,
+        deletedAt: null,
         OR: [
           { local: { contains: search, mode: 'insensitive' } },
           {
@@ -543,22 +540,13 @@ export class ReviewService {
 
   private async find_user_review(id: number, token: PayloadDTO) {
     const review = await this.prisma.review.findUnique({
-      where: { id: id, AND: { id_usuario: token.sub } },
+      where: { id: id, AND: { id_usuario: token.sub }, deletedAt: null },
       select: {
         fotos: { select: { url: true } },
       },
     });
     if (!review) throw new NotFoundException('Review não encontrada');
     return review;
-  }
-
-  private async remove_photos(fotosUrls: string[]) {
-    await Promise.all(
-      fotosUrls.map((foto) => {
-        const pathMaster = path.resolve(process.cwd(), 'imgs/reviews', foto);
-        return this.fileService.deleteFile(pathMaster);
-      }),
-    );
   }
 
   private async get_user_reactions_for_reviews(

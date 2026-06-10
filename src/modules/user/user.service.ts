@@ -212,6 +212,7 @@ export class UserService {
         nome_usuario: true,
         reputacao: true,
         reviews: {
+          where: { deletedAt: null },
           select: {
             id: true,
             oculto: true,
@@ -253,7 +254,7 @@ export class UserService {
         nome_usuario: true,
         reputacao: true,
         reviews: {
-          where: { oculto: false },
+          where: { oculto: false, deletedAt: null },
           select: {
             id: true,
             fotos: { select: { url: true } },
