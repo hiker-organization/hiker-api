@@ -97,8 +97,9 @@ export class UserController {
     return this.service.update_password(data, token);
   }
 
+  @UseGuards(AuthToken)
   @Get(':nick')
-  get_user(@Param('nick') nick: string) {
-    return this.service.get_user(nick);
+  get_user(@Param('nick') nick: string, @TokenPayloadParam() token: PayloadDTO) {
+    return this.service.get_user(nick, token);
   }
 }

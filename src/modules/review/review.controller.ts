@@ -53,22 +53,32 @@ export class ReviewController {
     return this.service.create_review(data, token, fotos);
   }
 
+  @UseGuards(AuthToken)
   @Get()
-  get_reviews(@Query() query: GetReviewsQueryDTO) {
-    return this.service.get_reviews(query);
+  get_reviews(
+    @Query() query: GetReviewsQueryDTO,
+    @TokenPayloadParam() token: PayloadDTO,
+  ) {
+    return this.service.get_reviews(query, token);
   }
 
+  @UseGuards(AuthToken)
   @Get('/search/:term')
   search_reviews(
     @Param('term') term: string,
     @Query() query: GetReviewsQueryDTO,
+    @TokenPayloadParam() token: PayloadDTO,
   ) {
-    return this.service.search_reviews(term, query);
+    return this.service.search_reviews(term, query, token);
   }
 
+  @UseGuards(AuthToken)
   @Get('/:id')
-  get_review(@Param('id', ParseIntPipe) id: number) {
-    return this.service.get_review(id);
+  get_review(
+    @Param('id', ParseIntPipe) id: number,
+    @TokenPayloadParam() token: PayloadDTO,
+  ) {
+    return this.service.get_review(id, token);
   }
 
   @UseGuards(AuthToken)
