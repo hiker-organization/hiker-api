@@ -20,7 +20,9 @@ import { PayloadDTO } from '../auth/dto/payload.dto.js';
 import { AuthToken } from '../auth/guard/auth.guard.js';
 import { UpdateUserDTO } from './dtos/updateUser.dto.js';
 import { UpdatePasswordDTO } from './dtos/updatePassword.dto.js';
+import { SkipThrottle } from '@nestjs/throttler';
 
+@SkipThrottle({ auth: true })
 @Controller('user')
 export class UserController {
   constructor(private readonly service: UserService) {}

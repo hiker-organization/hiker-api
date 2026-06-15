@@ -22,7 +22,9 @@ import { PayloadDTO } from '../auth/dto/payload.dto.js';
 import { CreateReviewDTO } from './dtos/create-review.dto.js';
 import { GetReviewsQueryDTO } from './dtos/get-reviews-query.dto.js';
 import { FilesInterceptor } from '@nestjs/platform-express';
+import { SkipThrottle } from '@nestjs/throttler';
 
+@SkipThrottle({ auth: true })
 @Controller('review')
 export class ReviewController {
   constructor(private readonly service: ReviewService) {}

@@ -25,6 +25,7 @@ model Usuario {
   reviews         Review[]
   denuncias       Denuncia[]
   tokens          Token_redefinicao_senha[]
+  refresh_tokens  Token_refresh[]
   interacoes      Voto_review[]
 }
 
@@ -121,6 +122,16 @@ model Denuncia {
   id_review  Int
 
   @@unique([id_usuario, id_review])
+}
+
+model Token_refresh {
+  id          Int      @id @default(autoincrement())
+  token_hash  String   @unique
+  expira_em   DateTime
+  usuario     Usuario  @relation(fields: [id_usuario], references: [id], onDelete: Cascade)
+  id_usuario  Int
+
+  @@index([id_usuario])
 }
 
 enum Role {
