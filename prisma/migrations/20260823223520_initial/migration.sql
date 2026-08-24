@@ -37,6 +37,7 @@ CREATE TABLE "Review" (
     "descricao" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "deletedAt" TIMESTAMP(3),
 
     CONSTRAINT "Review_pkey" PRIMARY KEY ("id")
 );
@@ -102,6 +103,16 @@ CREATE TABLE "Denuncia" (
     CONSTRAINT "Denuncia_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "Token_refresh" (
+    "id" SERIAL NOT NULL,
+    "token_hash" TEXT NOT NULL,
+    "expira_em" TIMESTAMP(3) NOT NULL,
+    "id_usuario" INTEGER NOT NULL,
+
+    CONSTRAINT "Token_refresh_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "Usuario_nome_usuario_key" ON "Usuario"("nome_usuario");
 
@@ -135,6 +146,12 @@ CREATE INDEX "Token_redefinicao_senha_id_usuario_idx" ON "Token_redefinicao_senh
 -- CreateIndex
 CREATE UNIQUE INDEX "Denuncia_id_usuario_id_review_key" ON "Denuncia"("id_usuario", "id_review");
 
+-- CreateIndex
+CREATE UNIQUE INDEX "Token_refresh_token_hash_key" ON "Token_refresh"("token_hash");
+
+-- CreateIndex
+CREATE INDEX "Token_refresh_id_usuario_idx" ON "Token_refresh"("id_usuario");
+
 -- AddForeignKey
 ALTER TABLE "Review" ADD CONSTRAINT "Review_id_usuario_fkey" FOREIGN KEY ("id_usuario") REFERENCES "Usuario"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
@@ -161,3 +178,6 @@ ALTER TABLE "Denuncia" ADD CONSTRAINT "Denuncia_id_usuario_fkey" FOREIGN KEY ("i
 
 -- AddForeignKey
 ALTER TABLE "Denuncia" ADD CONSTRAINT "Denuncia_id_review_fkey" FOREIGN KEY ("id_review") REFERENCES "Review"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Token_refresh" ADD CONSTRAINT "Token_refresh_id_usuario_fkey" FOREIGN KEY ("id_usuario") REFERENCES "Usuario"("id") ON DELETE CASCADE ON UPDATE CASCADE;

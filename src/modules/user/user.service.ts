@@ -178,7 +178,7 @@ export class UserService {
   }
   private async email_empty_or_fail(email: string): Promise<boolean> {
     const user = await this.prisma.usuario.findFirst({
-      where: { email, deletedAt: null },
+      where: { email: email, deletedAt: null },
     });
 
     if (user) throw new ConflictException('Email já existente.');
