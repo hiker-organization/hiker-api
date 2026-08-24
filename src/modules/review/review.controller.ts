@@ -22,7 +22,9 @@ import { PayloadDTO } from '../auth/dto/payload.dto.js';
 import { CreateReviewDTO } from './dtos/create-review.dto.js';
 import { GetReviewsQueryDTO } from './dtos/get-reviews-query.dto.js';
 import { FilesInterceptor } from '@nestjs/platform-express';
+import { SkipThrottle } from '@nestjs/throttler';
 
+@SkipThrottle({ auth: true })
 @Controller('review')
 export class ReviewController {
   constructor(private readonly service: ReviewService) {}
@@ -53,22 +55,32 @@ export class ReviewController {
     return this.service.create_review(data, token, fotos);
   }
 
+  @UseGuards(AuthToken)
   @Get()
-  get_reviews(@Query() query: GetReviewsQueryDTO) {
-    return this.service.get_reviews(query);
-  }
-
-  @Get('/search/:local')
-  get_per_local(
-    @Param('local') local: string,
+  get_reviews(
     @Query() query: GetReviewsQueryDTO,
+    @TokenPayloadParam() token: PayloadDTO,
   ) {
-    return this.service.get_local_reviews(local, query);
+    return this.service.get_reviews(query, token);
   }
 
+  @UseGuards(AuthToken)
+  @Get('/search/:term')
+  search_reviews(
+    @Param('term') term: string,
+    @Query() query: GetReviewsQueryDTO,
+    @TokenPayloadParam() token: PayloadDTO,
+  ) {
+    return this.service.search_reviews(term, query, token);
+  }
+
+  @UseGuards(AuthToken)
   @Get('/:id')
-  get_review(@Param('id', ParseIntPipe) id: number) {
-    return this.service.get_review(id);
+  get_review(
+    @Param('id', ParseIntPipe) id: number,
+    @TokenPayloadParam() token: PayloadDTO,
+  ) {
+    return this.service.get_review(id, token);
   }
 
   @UseGuards(AuthToken)

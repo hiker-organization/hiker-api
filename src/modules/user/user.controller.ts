@@ -20,7 +20,9 @@ import { PayloadDTO } from '../auth/dto/payload.dto.js';
 import { AuthToken } from '../auth/guard/auth.guard.js';
 import { UpdateUserDTO } from './dtos/updateUser.dto.js';
 import { UpdatePasswordDTO } from './dtos/updatePassword.dto.js';
+import { SkipThrottle } from '@nestjs/throttler';
 
+@SkipThrottle({ auth: true })
 @Controller('user')
 export class UserController {
   constructor(private readonly service: UserService) {}
@@ -97,8 +99,9 @@ export class UserController {
     return this.service.update_password(data, token);
   }
 
+  @UseGuards(AuthToken)
   @Get(':nick')
-  get_user(@Param('nick') nick: string) {
-    return this.service.get_user(nick);
+  get_user(@Param('nick') nick: string, @TokenPayloadParam() token: PayloadDTO) {
+    return this.service.get_user(nick, token);
   }
 }

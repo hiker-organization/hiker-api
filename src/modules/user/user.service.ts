@@ -90,8 +90,8 @@ export class UserService {
     return message_response('Conta desativada com sucesso.', 200);
   }
 
-  async get_user(nick: string) {
-    const user = await this.get_user_with_nick(nick);
+  async get_user(nick: string, token: PayloadDTO) {
+    const user = await this.get_user_with_nick(nick, token.sub);
     return get_response('Perfil do usuário abaixo', user, 200);
   }
 
@@ -133,14 +133,23 @@ export class UserService {
       data.foto_url = fileName;
     }
 
-    await this.prisma.usuario.update({
+    const updatedUser = await this.prisma.usuario.update({
       where: { id: user.id },
       data: {
         ...data,
       },
+      select: {
+        nome_exibicao: true,
+        foto_url: true,
+      },
     });
 
-    return message_response('Alterado com sucesso.', 200);
+    return create_response('Alterado com sucesso.', {
+      ...updatedUser,
+      foto_url: updatedUser.foto_url
+        ? `${process.env.API_STATIC_USER}${updatedUser.foto_url}`
+        : null,
+    }, 200);
   }
 
   async update_password(data: UpdatePasswordDTO, token: PayloadDTO) {
@@ -169,7 +178,7 @@ export class UserService {
   }
   private async email_empty_or_fail(email: string): Promise<boolean> {
     const user = await this.prisma.usuario.findFirst({
-      where: { email, deletedAt: null },
+      where: { email: email, deletedAt: null },
     });
 
     if (user) throw new ConflictException('Email já existente.');
@@ -203,6 +212,7 @@ export class UserService {
         nome_usuario: true,
         reputacao: true,
         reviews: {
+          where: { deletedAt: null },
           select: {
             id: true,
             oculto: true,
@@ -210,6 +220,7 @@ export class UserService {
             local: true,
             nota: true,
             descricao: true,
+            tags: { select: { tag: { select: { descritivo: true } } } },
             qnt_dislikes: true,
             qnt_likes: true,
             createdAt: true,
@@ -234,7 +245,7 @@ export class UserService {
       })),
     };
   }
-  private async get_user_with_nick(nick: string) {
+  private async get_user_with_nick(nick: string, viewerId: number) {
     const user = await this.prisma.usuario.findFirst({
       where: { nome_usuario: nick, deletedAt: null },
       select: {
@@ -243,13 +254,14 @@ export class UserService {
         nome_usuario: true,
         reputacao: true,
         reviews: {
-          where: { oculto: false },
+          where: { oculto: false, deletedAt: null },
           select: {
             id: true,
             fotos: { select: { url: true } },
             local: true,
             nota: true,
             descricao: true,
+            tags: { select: { tag: { select: { descritivo: true } } } },
             qnt_dislikes: true,
             qnt_likes: true,
             createdAt: true,
@@ -260,6 +272,11 @@ export class UserService {
 
     if (!user) throw new NotFoundException('Usuário não encontrado.');
 
+    const reactionMap = await this.get_user_reactions_for_reviews(
+      user.reviews.map((review) => review.id),
+      viewerId,
+    );
+
     return {
       ...user,
       foto_url: user.foto_url
@@ -267,11 +284,43 @@ export class UserService {
         : null,
       reviews: user.reviews.map((review) => ({
         ...review,
+        liked: reactionMap.get(review.id) === 'LIKE',
+        disliked: reactionMap.get(review.id) === 'DISLIKE',
         fotos: review.fotos.map((foto) => ({
           ...foto,
           url: `${process.env.API_STATIC_REVIEWS}${foto.url}`,
         })),
       })),
     };
+  }
+
+  private async get_user_reactions_for_reviews(
+    reviewIds: number[],
+    userId: number,
+  ) {
+    const reactionMap = new Map<number, string>();
+
+    if (reviewIds.length === 0) {
+      return reactionMap;
+    }
+
+    const reactions = await this.prisma.voto_review.findMany({
+      where: {
+        id_usuario: userId,
+        id_review: {
+          in: reviewIds,
+        },
+      },
+      select: {
+        id_review: true,
+        tipo: true,
+      },
+    });
+
+    reactions.forEach((reaction) => {
+      reactionMap.set(reaction.id_review, reaction.tipo);
+    });
+
+    return reactionMap;
   }
 }

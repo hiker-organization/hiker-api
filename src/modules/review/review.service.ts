@@ -131,22 +131,30 @@ export class ReviewService {
     });
   }
 
-  async get_reviews(query: GetReviewsQueryDTO) {
+  async get_reviews(query: GetReviewsQueryDTO, token: PayloadDTO) {
     const { data, nextCursor } =
-      await this.find_reviews_with_full_content(query);
+      await this.find_reviews_with_full_content(query, token.sub);
     return {
       ...get_response('reviews disponíveis', data, HttpStatus.OK),
       nextCursor,
     };
   }
 
-  async get_review(id: number) {
-    const review = await this.find_one_review_with_full_content(id);
+  async get_review(id: number, token: PayloadDTO) {
+    const review = await this.find_one_review_with_full_content(id, token.sub);
     return get_response('review encontrada.', review, HttpStatus.OK);
   }
 
-  async get_local_reviews(local: string, query: GetReviewsQueryDTO) {
-    const { data, nextCursor } = await this.find_reviews_local(local, query);
+  async search_reviews(
+    term: string,
+    query: GetReviewsQueryDTO,
+    token: PayloadDTO,
+  ) {
+    const { data, nextCursor } = await this.find_reviews_search(
+      term,
+      query,
+      token.sub,
+    );
     return {
       ...get_response('reviews disponíveis', data, HttpStatus.OK),
       nextCursor,
@@ -154,15 +162,11 @@ export class ReviewService {
   }
 
   async delete_review(id: number, token: PayloadDTO) {
-    const fotosUrls: string[] = [];
-    const review = await this.find_user_review(id, token);
-    review.fotos.forEach((foto) => {
-      fotosUrls.push(foto.url);
-    });
-    await this.prisma.review.delete({
+    await this.find_user_review(id, token);
+    await this.prisma.review.update({
       where: { id: id },
+      data: { deletedAt: new Date() },
     });
-    await this.remove_photos(fotosUrls);
     return message_response('Review excluída com sucesso.', HttpStatus.OK);
   }
 
@@ -318,9 +322,9 @@ export class ReviewService {
     });
   }
 
-  private async find_one_review_with_full_content(id: number) {
+  private async find_one_review_with_full_content(id: number, userId: number) {
     const review = await this.prisma.review.findUnique({
-      where: { id: id, oculto: false },
+      where: { id: id, oculto: false, deletedAt: null },
       select: {
         descricao: true,
         local: true,
@@ -348,8 +352,22 @@ export class ReviewService {
     });
     if (!review) throw new NotFoundException('review não encontrada.');
 
+    const reaction = await this.prisma.voto_review.findUnique({
+      where: {
+        id_usuario_id_review: {
+          id_usuario: userId,
+          id_review: id,
+        },
+      },
+      select: {
+        tipo: true,
+      },
+    });
+
     return {
       ...review,
+      liked: reaction?.tipo === 'LIKE',
+      disliked: reaction?.tipo === 'DISLIKE',
       fotos: review.fotos.map((foto) => ({
         url: `${process.env.API_STATIC_REVIEWS}${foto.url}`,
       })),
@@ -362,7 +380,10 @@ export class ReviewService {
     };
   }
 
-  private async find_reviews_with_full_content(query: GetReviewsQueryDTO) {
+  private async find_reviews_with_full_content(
+    query: GetReviewsQueryDTO,
+    userId: number,
+  ) {
     const limit = query.limit ?? 20;
     const reviews = await this.prisma.review.findMany({
       take: limit + 1,
@@ -373,7 +394,7 @@ export class ReviewService {
       orderBy: {
         id: 'desc',
       },
-      where: { oculto: false },
+      where: { oculto: false, deletedAt: null },
       select: {
         id: true,
         descricao: true,
@@ -408,9 +429,16 @@ export class ReviewService {
     const data = hasNextPage ? reviews.slice(0, limit) : reviews;
     const nextCursor = hasNextPage ? data[data.length - 1].id : null;
 
+    const reactions = await this.get_user_reactions_for_reviews(
+      data.map((review) => review.id),
+      userId,
+    );
+
     return {
       data: data.map((review) => ({
         ...review,
+        liked: reactions.get(review.id) === 'LIKE',
+        disliked: reactions.get(review.id) === 'DISLIKE',
         fotos: review.fotos.map((foto) => ({
           url: `${process.env.API_STATIC_REVIEWS}${foto.url}`,
         })),
@@ -425,8 +453,13 @@ export class ReviewService {
     };
   }
 
-  private async find_reviews_local(local: string, query: GetReviewsQueryDTO) {
+  private async find_reviews_search(
+    term: string,
+    query: GetReviewsQueryDTO,
+    userId: number,
+  ) {
     const limit = query.limit ?? 20;
+    const search = term?.trim() ?? '';
     const reviews = await this.prisma.review.findMany({
       take: limit + 1,
       skip: query.cursor ? 1 : 0,
@@ -436,7 +469,20 @@ export class ReviewService {
       orderBy: {
         id: 'desc',
       },
-      where: { oculto: false, id_local: local },
+      where: {
+        oculto: false,
+        deletedAt: null,
+        OR: [
+          { local: { contains: search, mode: 'insensitive' } },
+          {
+            tags: {
+              some: {
+                tag: { descritivo: { contains: search, mode: 'insensitive' } },
+              },
+            },
+          },
+        ],
+      },
       select: {
         id: true,
         descricao: true,
@@ -464,16 +510,20 @@ export class ReviewService {
       },
     });
 
-    if (reviews.length === 0)
-      throw new NotFoundException('nenhuma review encontrada no momento.');
-
     const hasNextPage = reviews.length > limit;
     const data = hasNextPage ? reviews.slice(0, limit) : reviews;
     const nextCursor = hasNextPage ? data[data.length - 1].id : null;
 
+    const reactions = await this.get_user_reactions_for_reviews(
+      data.map((review) => review.id),
+      userId,
+    );
+
     return {
       data: data.map((review) => ({
         ...review,
+        liked: reactions.get(review.id) === 'LIKE',
+        disliked: reactions.get(review.id) === 'DISLIKE',
         fotos: review.fotos.map((foto) => ({
           url: `${process.env.API_STATIC_REVIEWS}${foto.url}`,
         })),
@@ -490,7 +540,7 @@ export class ReviewService {
 
   private async find_user_review(id: number, token: PayloadDTO) {
     const review = await this.prisma.review.findUnique({
-      where: { id: id, AND: { id_usuario: token.sub } },
+      where: { id: id, AND: { id_usuario: token.sub }, deletedAt: null },
       select: {
         fotos: { select: { url: true } },
       },
@@ -499,12 +549,33 @@ export class ReviewService {
     return review;
   }
 
-  private async remove_photos(fotosUrls: string[]) {
-    await Promise.all(
-      fotosUrls.map((foto) => {
-        const pathMaster = path.resolve(process.cwd(), 'imgs/reviews', foto);
-        return this.fileService.deleteFile(pathMaster);
-      }),
-    );
+  private async get_user_reactions_for_reviews(
+    reviewIds: number[],
+    userId: number,
+  ) {
+    const reactionMap = new Map<number, string>();
+
+    if (reviewIds.length === 0) {
+      return reactionMap;
+    }
+
+    const reactions = await this.prisma.voto_review.findMany({
+      where: {
+        id_usuario: userId,
+        id_review: {
+          in: reviewIds,
+        },
+      },
+      select: {
+        id_review: true,
+        tipo: true,
+      },
+    });
+
+    reactions.forEach((reaction) => {
+      reactionMap.set(reaction.id_review, reaction.tipo);
+    });
+
+    return reactionMap;
   }
 }
