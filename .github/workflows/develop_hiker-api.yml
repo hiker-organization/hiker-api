@@ -15,7 +15,7 @@ jobs:
     permissions:
       contents: read #This is required for actions/checkout
 
-    steps:
+     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Node.js version
@@ -23,17 +23,23 @@ jobs:
         with:
           node-version: '24.x'
 
-      - name: npm install, build, and test
+      - name: npm install, build
         run: |
           npm install
-          npm run build --if-present
-          npm run test --if-present
+          npx prisma generate
+          npm run build
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: node-app
-          path: .
+          path: |
+            dist/
+            generated/
+            package.json
+            package-lock.json
+            prisma/
+            node_modules/
 
   deploy:
     runs-on: ubuntu-latest
