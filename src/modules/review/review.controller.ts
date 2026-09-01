@@ -42,7 +42,7 @@ export class ReviewController {
           errorMessage: 'imagem precisa estar em jpeg ou jpg ou png.',
         })
         .addMaxSizeValidator({
-          maxSize: 1 * (1024 * 1024),
+          maxSize: 10 * (1024 * 1024),
           errorMessage: 'imagem excede tamanho permitido.',
         })
         .build({
