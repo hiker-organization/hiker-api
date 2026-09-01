@@ -15,7 +15,7 @@ jobs:
     permissions:
       contents: read #This is required for actions/checkout
 
-     steps:
+    steps:
       - uses: actions/checkout@v4
 
       - name: Set up Node.js version
