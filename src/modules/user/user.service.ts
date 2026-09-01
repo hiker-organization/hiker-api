@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateUserDTO } from './dtos/createUser.dto.js';
 import { create_response } from '../../common/helpers/create-response.helper.js';
 import { FileService } from '../../common/services/file.service.js';
+import { UploadAzureService } from '../../common/services/upload.azure.service.js';
 import path from 'node:path';
 import { mkdir } from 'node:fs/promises';
 import { HashingService } from '../../common/services/hash.service.js';
@@ -24,6 +25,7 @@ export class UserService {
     private prisma: PrismaService,
     private readonly hashService: HashingService,
     private readonly fileService: FileService,
+    private readonly uploadAzureService: UploadAzureService,
   ) {}
 
   async create_user(data: CreateUserDTO, foto?: Express.Multer.File) {
@@ -231,18 +233,23 @@ export class UserService {
 
     if (!user) throw new NotFoundException('Usuário não encontrado.');
 
+    const reviews = await Promise.all(
+      user.reviews.map(async (review) => ({
+        ...review,
+        fotos: await Promise.all(
+          review.fotos.map(async (foto) => ({
+            url: await this.uploadAzureService.getReviewImageUrl(foto.url),
+          })),
+        ),
+      })),
+    );
+
     return {
       ...user,
       foto_url: user.foto_url
         ? `${process.env.API_STATIC_USER}${user.foto_url}`
         : null,
-      reviews: user.reviews.map((review) => ({
-        ...review,
-        fotos: review.fotos.map((foto) => ({
-          ...foto,
-          url: `${process.env.API_STATIC_REVIEWS}${foto.url}`,
-        })),
-      })),
+      reviews,
     };
   }
   private async get_user_with_nick(nick: string, viewerId: number) {
@@ -277,20 +284,25 @@ export class UserService {
       viewerId,
     );
 
+    const reviews = await Promise.all(
+      user.reviews.map(async (review) => ({
+        ...review,
+        liked: reactionMap.get(review.id) === 'LIKE',
+        disliked: reactionMap.get(review.id) === 'DISLIKE',
+        fotos: await Promise.all(
+          review.fotos.map(async (foto) => ({
+            url: await this.uploadAzureService.getReviewImageUrl(foto.url),
+          })),
+        ),
+      })),
+    );
+
     return {
       ...user,
       foto_url: user.foto_url
         ? `${process.env.API_STATIC_USER}${user.foto_url}`
         : null,
-      reviews: user.reviews.map((review) => ({
-        ...review,
-        liked: reactionMap.get(review.id) === 'LIKE',
-        disliked: reactionMap.get(review.id) === 'DISLIKE',
-        fotos: review.fotos.map((foto) => ({
-          ...foto,
-          url: `${process.env.API_STATIC_REVIEWS}${foto.url}`,
-        })),
-      })),
+      reviews,
     };
   }
 
