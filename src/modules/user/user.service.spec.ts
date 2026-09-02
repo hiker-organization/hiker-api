@@ -3,11 +3,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { UserService } from './user.service.js'
 import { PrismaService } from '../prisma/prisma.service.js'
 import { HashingService } from '../../common/services/hash.service.js'
-import { FileService } from '../../common/services/file.service.js'
 import { UploadAzureService } from '../../common/services/upload.azure.service.js'
 import { PrismaServiceMock } from './mocks/prismaService.mock.js';
 import { HashServiceMock } from './mocks/hashService.mock.js';
-import { FileServiceMock } from './mocks/fileService.mock.js';
 import { UploadAzureServiceMock } from '../review/mocks/uploadAzureService.mock.js';
 import { UserMock } from './mocks/userCreate.mock.js';
 import { ConflictException } from '@nestjs/common';
@@ -16,7 +14,6 @@ describe("userService", () => {
     let userService: UserService
     let prismaService: PrismaService
     let hashService: HashingService
-    let fileService: FileService
     let uploadAzureService: UploadAzureService
 
     beforeEach(async () => {
@@ -27,7 +24,6 @@ describe("userService", () => {
                 UserService,
                 { provide: PrismaService, useValue: PrismaServiceMock() },
                 { provide: HashingService, useValue: HashServiceMock() },
-                { provide: FileService, useValue: FileServiceMock() },
                 { provide: UploadAzureService, useValue: UploadAzureServiceMock() },
             ],
         }).compile()
@@ -35,7 +31,6 @@ describe("userService", () => {
         userService = module.get<UserService>(UserService)
         prismaService = module.get<PrismaService>(PrismaService)
         hashService = module.get<HashingService>(HashingService)
-        fileService = module.get<FileService>(FileService)
         uploadAzureService = module.get<UploadAzureService>(UploadAzureService)
     })
 

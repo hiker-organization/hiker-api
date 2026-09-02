@@ -7,12 +7,9 @@ import {
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateUserDTO } from './dtos/createUser.dto.js';
 import { create_response } from '../../common/helpers/create-response.helper.js';
-import { FileService } from '../../common/services/file.service.js';
 import { UploadAzureService } from '../../common/services/upload.azure.service.js';
-import path from 'node:path';
-import { mkdir } from 'node:fs/promises';
 import { HashingService } from '../../common/services/hash.service.js';
-import { getRandomValues, randomUUID } from 'node:crypto';
+import { getRandomValues } from 'node:crypto';
 import { PayloadDTO } from '../auth/dto/payload.dto.js';
 import { get_response } from '../../common/helpers/get-response.helper.js';
 import { UpdateUserDTO } from './dtos/updateUser.dto.js';
@@ -24,7 +21,6 @@ export class UserService {
   constructor(
     private prisma: PrismaService,
     private readonly hashService: HashingService,
-    private readonly fileService: FileService,
     private readonly uploadAzureService: UploadAzureService,
   ) {}
 
@@ -40,20 +36,10 @@ export class UserService {
     await this.nick_empty_or_fail(nick);
 
     if (foto) {
-      const extName = path
-        .extname(foto?.originalname)
-        .toLowerCase()
-        .substring(1);
-
-      const fileName = `${randomUUID()}.${extName}`;
-
-      const pathMaster = path.resolve(process.cwd(), 'imgs/user', fileName);
-      const dirPath = path.dirname(pathMaster);
-
-      await mkdir(dirPath, { recursive: true });
-      await this.fileService.writeFile(pathMaster, foto.buffer);
-
-      data.foto_url = fileName;
+      data.foto_url = await this.uploadAzureService.addImageUser(
+        foto.buffer,
+        foto.originalname,
+      );
     }
 
     const user = await this.prisma.usuario.create({
@@ -112,27 +98,14 @@ export class UserService {
     data.nome_usuario = data.nome_usuario ? `@${data.nome_usuario}` : undefined;
 
     if (foto) {
-      const extName = path
-        .extname(foto?.originalname)
-        .toLowerCase()
-        .substring(1);
+      data.foto_url = await this.uploadAzureService.addImageUser(
+        foto.buffer,
+        foto.originalname,
+      );
 
       if (user.foto_url) {
-        const oldUrl = user.foto_url;
-        const pathUrl = path.resolve(process.cwd(), 'imgs/user', oldUrl);
-        await this.fileService.deleteFile(pathUrl);
+        await this.uploadAzureService.deleteUserImage(user.foto_url);
       }
-
-      const fileName = `${randomUUID()}.${extName}`;
-
-      const pathMaster = path.resolve(process.cwd(), 'imgs/user', fileName);
-      const dirPath = path.dirname(pathMaster);
-
-      await mkdir(dirPath, { recursive: true });
-
-      await this.fileService.writeFile(pathMaster, foto.buffer);
-
-      data.foto_url = fileName;
     }
 
     const updatedUser = await this.prisma.usuario.update({
@@ -149,7 +122,7 @@ export class UserService {
     return create_response('Alterado com sucesso.', {
       ...updatedUser,
       foto_url: updatedUser.foto_url
-        ? `${process.env.API_STATIC_USER}${updatedUser.foto_url}`
+        ? await this.uploadAzureService.getUserImageUrl(updatedUser.foto_url)
         : null,
     }, 200);
   }
@@ -247,7 +220,7 @@ export class UserService {
     return {
       ...user,
       foto_url: user.foto_url
-        ? `${process.env.API_STATIC_USER}${user.foto_url}`
+        ? await this.uploadAzureService.getUserImageUrl(user.foto_url)
         : null,
       reviews,
     };
@@ -300,7 +273,7 @@ export class UserService {
     return {
       ...user,
       foto_url: user.foto_url
-        ? `${process.env.API_STATIC_USER}${user.foto_url}`
+        ? await this.uploadAzureService.getUserImageUrl(user.foto_url)
         : null,
       reviews,
     };

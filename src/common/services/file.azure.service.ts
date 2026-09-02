@@ -36,6 +36,12 @@ export class FilesAzureService {
         });
     }
 
+    public async deleteBlob(containerName: string, blobName: string): Promise<void> {
+        const containerClient = await this.getContainerClient(containerName);
+        const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+        await blockBlobClient.deleteIfExists();
+    }
+
     public async generateSasUrl(
         containerName: string,
         blobName: string,

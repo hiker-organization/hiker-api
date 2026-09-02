@@ -369,7 +369,9 @@ export class ReviewService {
       autor: {
         ...review.autor,
         foto_url: review.autor.foto_url
-          ? `${process.env.API_STATIC_USER}${review.autor.foto_url}`
+          ? await this.uploadAzureService.getUserImageUrl(
+              review.autor.foto_url,
+            )
           : null,
       },
     };
@@ -442,7 +444,7 @@ export class ReviewService {
         autor: {
           ...review.autor,
           foto_url: review.autor.foto_url
-            ? `${process.env.API_STATIC_USER}${review.autor.foto_url}`
+            ? `${await this.uploadAzureService.getUserImageUrl(review.autor.foto_url)}`
             : null,
         },
       })),
@@ -533,7 +535,7 @@ export class ReviewService {
         autor: {
           ...review.autor,
           foto_url: review.autor.foto_url
-            ? `${process.env.API_STATIC_USER}${review.autor.foto_url}`
+            ? `${await this.uploadAzureService.getUserImageUrl(review.autor.foto_url)}`
             : null,
         },
       })),
