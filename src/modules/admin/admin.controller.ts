@@ -10,17 +10,17 @@ import { Role } from '../auth/utils/enums/role.enum.js';
 @UseGuards(AuthToken)
 @Controller('admin')
 export class AdminController {
-    constructor(private readonly service: AdminService) {}
+  constructor(private readonly service: AdminService) {}
 
-    @Post()
-    set(@TokenPayloadParam() token: PayloadDTO) {
-        return this.service.admin(token)
-    }
+  @Post()
+  set(@TokenPayloadParam() token: PayloadDTO) {
+    return this.service.admin(token);
+  }
 
-    @UseGuards(AuthToken, RolesGuard)
-    @Roles(Role.ADMIM)
-    @Get('dashboard')
-    dashboard() {
-        return "ooooooiiii"
-    }
+  @UseGuards(AuthToken, RolesGuard)
+  @Roles(Role.ADMIM)
+  @Get('dashboard')
+  dashboard() {
+    return 'ooooooiiii';
+  }
 }

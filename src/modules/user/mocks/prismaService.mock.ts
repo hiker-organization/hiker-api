@@ -10,5 +10,5 @@ export const PrismaServiceMock = () => ({
 
   voto_review: {
     findMany: jest.fn(),
-  }
+  },
 });

@@ -60,17 +60,28 @@ export class AuthService {
 
     const refreshToken = this.generateRefreshToken();
     const tokenHash = this.hashToken(refreshToken);
-    const expiresAt = new Date(Date.now() + jwtConstants.refreshTokenTtl * 1000);
+    const expiresAt = new Date(
+      Date.now() + jwtConstants.refreshTokenTtl * 1000,
+    );
 
     // Single-session policy: new login invalidates all previous refresh tokens for this user.
     await this.prisma.$transaction([
       this.prisma.token_refresh.deleteMany({ where: { id_usuario: user.id } }),
       this.prisma.token_refresh.create({
-        data: { token_hash: tokenHash, expira_em: expiresAt, id_usuario: user.id },
+        data: {
+          token_hash: tokenHash,
+          expira_em: expiresAt,
+          id_usuario: user.id,
+        },
       }),
     ]);
 
-    return login_response('logado com sucesso.', accessToken, refreshToken, HttpStatus.OK);
+    return login_response(
+      'logado com sucesso.',
+      accessToken,
+      refreshToken,
+      HttpStatus.OK,
+    );
   }
 
   async refresh(refreshTokenDto: RefreshTokenDTO) {
@@ -107,21 +118,34 @@ export class AuthService {
 
     const newRefreshToken = this.generateRefreshToken();
     const newTokenHash = this.hashToken(newRefreshToken);
-    const expiresAt = new Date(Date.now() + jwtConstants.refreshTokenTtl * 1000);
+    const expiresAt = new Date(
+      Date.now() + jwtConstants.refreshTokenTtl * 1000,
+    );
 
     await this.prisma.$transaction([
       this.prisma.token_refresh.delete({ where: { id: stored.id } }),
       this.prisma.token_refresh.create({
-        data: { token_hash: newTokenHash, expira_em: expiresAt, id_usuario: user.id },
+        data: {
+          token_hash: newTokenHash,
+          expira_em: expiresAt,
+          id_usuario: user.id,
+        },
       }),
     ]);
 
-    return login_response('token renovado com sucesso.', newAccessToken, newRefreshToken, HttpStatus.OK);
+    return login_response(
+      'token renovado com sucesso.',
+      newAccessToken,
+      newRefreshToken,
+      HttpStatus.OK,
+    );
   }
 
   async logout(refreshTokenDto: RefreshTokenDTO) {
     const tokenHash = this.hashToken(refreshTokenDto.refresh_token);
-    await this.prisma.token_refresh.deleteMany({ where: { token_hash: tokenHash } });
+    await this.prisma.token_refresh.deleteMany({
+      where: { token_hash: tokenHash },
+    });
     return message_response('Logout realizado com sucesso.', HttpStatus.OK);
   }
 

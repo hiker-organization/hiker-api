@@ -77,7 +77,7 @@ export class ReviewService {
             } catch {
               tag = await rw.tag.findUnique({ where: { descritivo } });
             }
-          } 
+          }
           return tag!.id;
         }),
       );
@@ -132,8 +132,10 @@ export class ReviewService {
   }
 
   async get_reviews(query: GetReviewsQueryDTO, token: PayloadDTO) {
-    const { data, nextCursor } =
-      await this.find_reviews_with_full_content(query, token.sub);
+    const { data, nextCursor } = await this.find_reviews_with_full_content(
+      query,
+      token.sub,
+    );
     return {
       ...get_response('reviews disponíveis', data, HttpStatus.OK),
       nextCursor,

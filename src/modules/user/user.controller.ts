@@ -101,7 +101,10 @@ export class UserController {
 
   @UseGuards(AuthToken)
   @Get(':nick')
-  get_user(@Param('nick') nick: string, @TokenPayloadParam() token: PayloadDTO) {
+  get_user(
+    @Param('nick') nick: string,
+    @TokenPayloadParam() token: PayloadDTO,
+  ) {
     return this.service.get_user(nick, token);
   }
 }

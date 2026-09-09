@@ -6,7 +6,14 @@ import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'node:path';
 import { AuthModule } from '../auth/auth.module.js';
 import { ReviewModule } from '../review/review.module.js';
-import { days, hours, minutes, seconds, ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import {
+  days,
+  hours,
+  minutes,
+  seconds,
+  ThrottlerGuard,
+  ThrottlerModule,
+} from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { AdminModule } from '../admin/admin.module.js';
 
@@ -27,25 +34,26 @@ import { AdminModule } from '../admin/admin.module.js';
           name: 'global',
           ttl: days(1),
           limit: 500,
-          blockDuration: hours(12)
+          blockDuration: hours(12),
         },
         {
           name: 'auth',
           ttl: seconds(30),
           limit: 5,
-          blockDuration: minutes(15)
-        }
+          blockDuration: minutes(15),
+        },
       ],
-      errorMessage: 'Limite de tentativas excedido. Por favor, tente novamente mais tarde.',
+      errorMessage:
+        'Limite de tentativas excedido. Por favor, tente novamente mais tarde.',
     }),
   ],
   controllers: [AppController],
   providers: [
-    AppService, 
+    AppService,
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
-    }
+    },
   ],
 })
 export class AppModule {}
