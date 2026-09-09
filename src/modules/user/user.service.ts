@@ -11,7 +11,7 @@ import { FileService } from '../../common/services/file.service.js';
 import path from 'node:path';
 import { mkdir } from 'node:fs/promises';
 import { HashingService } from '../../common/services/hash.service.js';
-import { getRandomValues, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { PayloadDTO } from '../auth/dto/payload.dto.js';
 import { get_response } from '../../common/helpers/get-response.helper.js';
 import { UpdateUserDTO } from './dtos/updateUser.dto.js';

@@ -77,7 +77,7 @@ export class ReviewService {
             } catch {
               tag = await rw.tag.findUnique({ where: { descritivo } });
             }
-          }
+          } 
           return tag!.id;
         }),
       );

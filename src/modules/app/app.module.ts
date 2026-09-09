@@ -8,12 +8,14 @@ import { AuthModule } from '../auth/auth.module.js';
 import { ReviewModule } from '../review/review.module.js';
 import { days, hours, minutes, seconds, ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
+import { AdminModule } from '../admin/admin.module.js';
 
 @Module({
   imports: [
     UserModule,
     AuthModule,
     ReviewModule,
+    AdminModule,
     ThrottlerModule,
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', '..', '..', 'imgs'),
