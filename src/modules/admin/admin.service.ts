@@ -4,6 +4,7 @@ import { PayloadDTO } from '../auth/dto/payload.dto.js';
 import { message_response } from '../../common/helpers/message-response.helper.js';
 import { get_response } from '../../common/helpers/get-response.helper.js';
 import { GetUsersDTO } from './utils/dto/query.dto.js';
+import { BlockDTO } from './utils/dto/block.dto.js';
 
 @Injectable()
 export class AdminService {
@@ -28,11 +29,11 @@ export class AdminService {
     return get_response('Usuário encontrado.', user, 200);
   }
 
-  async block(nick: string) {
+  async block(nick: string, data: BlockDTO) {
     const user = await this.verify_user(nick);
 
     await this.prisma.usuario.update({
-      data: { bloqueado: true },
+      data: { bloqueado: true, bloqueado_ate: data.data },
       where: { nome_usuario: user.nome_usuario },
     });
 
@@ -43,7 +44,7 @@ export class AdminService {
     const user = await this.verify_user(nick);
 
     await this.prisma.usuario.update({
-      data: { bloqueado: false },
+      data: { bloqueado: false, bloqueado_ate: null },
       where: { nome_usuario: user.nome_usuario },
     });
 

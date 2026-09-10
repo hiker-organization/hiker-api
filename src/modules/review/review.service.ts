@@ -311,7 +311,7 @@ export class ReviewService {
       where: { email: token.email },
     });
 
-    if (user!.bloqueado)
+    if (user!.bloqueado && user!.bloqueado_ate! > new Date())
       throw new UnauthorizedException(
         'Você está bloqueado, não poderá realizar esta ação.',
       );

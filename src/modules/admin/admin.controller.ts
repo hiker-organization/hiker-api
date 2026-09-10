@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   Delete,
   Get,
@@ -16,6 +17,7 @@ import { RolesGuard } from '../auth/guard/role.guard.js';
 import { Roles } from '../auth/utils/decorators/role.decorator.js';
 import { Role } from '../auth/utils/enums/role.enum.js';
 import { GetUsersDTO } from './utils/dto/query.dto.js';
+import { BlockDTO } from './utils/dto/block.dto.js';
 
 @UseGuards(AuthToken)
 @Controller('admin')
@@ -51,8 +53,8 @@ export class AdminController {
   @UseGuards(AuthToken, RolesGuard)
   @Roles(Role.ADMIM)
   @Put(':nick/block')
-  block(@Param('nick') nick: string) {
-    return this.service.block(nick);
+  block(@Param('nick') nick: string, @Body() data: BlockDTO) {
+    return this.service.block(nick, data);
   }
 
   @UseGuards(AuthToken, RolesGuard)
