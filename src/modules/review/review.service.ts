@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateReviewDTO } from './dtos/create-review.dto.js';
@@ -30,6 +31,8 @@ export class ReviewService {
     fotos?: Array<Express.Multer.File>,
   ) {
     const fotosUrls: string[] = [];
+
+    await this.verify_block(token);
 
     if (fotos && fotos.length > 0) {
       await Promise.all(
@@ -173,6 +176,8 @@ export class ReviewService {
   }
 
   async like_review(id: number, token: PayloadDTO) {
+    await this.verify_block(token);
+
     return await this.prisma.$transaction(async (lk) => {
       const review = await lk.review.findUnique({
         where: { id: id },
@@ -223,6 +228,8 @@ export class ReviewService {
   }
 
   async dislike_review(id: number, token: PayloadDTO) {
+    await this.verify_block(token);
+
     return await this.prisma.$transaction(async (dlk) => {
       const review = await dlk.review.findUnique({
         where: { id: id },
@@ -297,6 +304,17 @@ export class ReviewService {
       'Visibilidade da review alterada com sucesso.',
       HttpStatus.OK,
     );
+  }
+
+  private async verify_block(token: PayloadDTO) {
+    const user = await this.prisma.usuario.findUnique({
+      where: { email: token.email },
+    });
+
+    if (user!.bloqueado)
+      throw new UnauthorizedException(
+        'Você está bloqueado, não poderá realizar esta ação.',
+      );
   }
 
   private async calc_reputation(id_user: number, tx?: any) {

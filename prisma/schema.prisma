@@ -19,6 +19,8 @@ model Usuario {
   foto_url                String?
   reputacao               Float       @default(0)
   cargo                   Role        @default(USER)
+  bloqueado               Boolean     @default(false)
+  bloqueado_ate           DateTime?
   createdAt               DateTime    @default(now())
   updatedAt               DateTime    @updatedAt
   deletedAt               DateTime?
