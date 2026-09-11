@@ -19,11 +19,11 @@ import { Role } from '../auth/utils/enums/role.enum.js';
 import { GetUsersDTO } from './utils/dto/query.dto.js';
 import { BlockDTO } from './utils/dto/block.dto.js';
 
-@UseGuards(AuthToken)
 @Controller('admin')
 export class AdminController {
   constructor(private readonly service: AdminService) {}
 
+  @UseGuards(AuthToken)
   @Post()
   set(@TokenPayloadParam() token: PayloadDTO) {
     return this.service.admin(token);
@@ -31,16 +31,16 @@ export class AdminController {
 
   @UseGuards(AuthToken, RolesGuard)
   @Roles(Role.ADMIM)
-  @Get('dashboard')
-  dashboard() {
-    return 'ooooooiiii';
+  @Get('users')
+  show_users(@Query() query: GetUsersDTO) {
+    return this.service.show_users(query);
   }
 
   @UseGuards(AuthToken, RolesGuard)
   @Roles(Role.ADMIM)
-  @Get('users')
-  show_users(@Query() query: GetUsersDTO) {
-    return this.service.show_users(query);
+  @Put(':nick/ban')
+  dashboard(@Param('nick') nick: string) {
+    return this.service.ban(nick);
   }
 
   @UseGuards(AuthToken, RolesGuard)

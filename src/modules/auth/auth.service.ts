@@ -43,6 +43,8 @@ export class AuthService {
       throw new UnauthorizedException('Email ou senha inválidos.');
     }
 
+    await this.verify_ban(user.email);
+
     const senhaIsValid = await this.hashService.compare(
       loginDto.password,
       user.senha,
@@ -211,5 +213,16 @@ export class AuthService {
     ]);
 
     return message_response('Senha redefinida com sucesso!', HttpStatus.OK);
+  }
+
+  private async verify_ban(email: string) {
+    const user = await this.prisma.usuario.findUnique({
+      where: { email: email },
+    });
+
+    if (user!.banido)
+      throw new UnauthorizedException(
+        'Você foi banido, não poderá mais usar nosso app.',
+      );
   }
 }

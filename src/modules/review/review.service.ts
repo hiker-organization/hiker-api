@@ -17,6 +17,7 @@ import { FileService } from '../../common/services/file.service.js';
 import { create_response } from '../../common/helpers/create-response.helper.js';
 import { get_response } from '../../common/helpers/get-response.helper.js';
 import { message_response } from '../../common/helpers/message-response.helper.js';
+import { Usuario } from '../../../generated/prisma/client.js';
 
 @Injectable()
 export class ReviewService {
@@ -310,6 +311,11 @@ export class ReviewService {
     const user = await this.prisma.usuario.findUnique({
       where: { email: token.email },
     });
+
+    if (user!.banido)
+      throw new UnauthorizedException(
+        'Você está banido, não poderá mais acessar nossos recursos.',
+      );
 
     if (user!.bloqueado && user!.bloqueado_ate! > new Date())
       throw new UnauthorizedException(

@@ -40,6 +40,17 @@ export class AdminService {
     return message_response('Usuário bloqueado com sucesso.', 200);
   }
 
+  async ban(nick: string) {
+    const user = await this.verify_user(nick);
+
+    await this.prisma.usuario.update({
+      data: { banido: true },
+      where: { nome_usuario: user.nome_usuario },
+    });
+
+    return message_response('Usuário banido com sucesso.', 200);
+  }
+
   async unblock(nick: string) {
     const user = await this.verify_user(nick);
 

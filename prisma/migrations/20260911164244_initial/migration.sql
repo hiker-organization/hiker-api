@@ -16,6 +16,7 @@ CREATE TABLE "Usuario" (
     "foto_url" TEXT,
     "reputacao" DOUBLE PRECISION NOT NULL DEFAULT 0,
     "cargo" "Role" NOT NULL DEFAULT 'USER',
+    "banido" BOOLEAN NOT NULL DEFAULT false,
     "bloqueado" BOOLEAN NOT NULL DEFAULT false,
     "bloqueado_ate" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
