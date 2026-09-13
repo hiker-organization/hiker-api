@@ -31,7 +31,7 @@ export class EmailService {
 
   async sendMail({ to, subject, text, html }: SendEmailInput): Promise<void> {
     await this.transporter.sendMail({
-      from: `"${process.env.SMTP_FROM}"`,
+      from: `"${process.env.SMTP_FROM}" <${process.env.SMTP_USER}>`,
       to,
       subject,
       text,
