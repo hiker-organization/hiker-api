@@ -70,7 +70,7 @@ export class AuthService {
     );
   }
 
-  async web_login(loginDto: LoginDTO, res: Response) {
+  async login_web(loginDto: LoginDTO, res: Response) {
     const tokens = await this.login(loginDto);
 
     res.cookie('access_token', tokens.access_token, {
@@ -148,7 +148,7 @@ export class AuthService {
     );
   }
 
-  async web_refresh(res: Response, req: Request) {
+  async refresh_web(res: Response, req: Request) {
     const refreshToken = req.cookies?.refresh_token;
 
     if (!refreshToken)
@@ -181,7 +181,7 @@ export class AuthService {
     return message_response('Logout realizado com sucesso.', HttpStatus.OK);
   }
 
-  async web_logout(res: Response, req: Request) {
+  async logout_web(res: Response, req: Request) {
     const refreshToken = req.cookies?.refresh_token;
     if (refreshToken) {
       await this.logout(refreshToken);

@@ -22,7 +22,7 @@ export class AuthController {
     @Body() LoginDTO: LoginDTO,
     @Res({ passthrough: true }) response: Response,
   ) {
-    return this.web_login(LoginDTO, response);
+    return this.authService.login_web(LoginDTO, response);
   }
 
   @Post('refresh')
@@ -35,7 +35,7 @@ export class AuthController {
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
   ) {
-    return this.web_refresh(request, response);
+    return this.authService.refresh_web(response, request);
   }
 
   @Post('logout')
@@ -48,7 +48,7 @@ export class AuthController {
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
   ) {
-    return this.web_logout(request, response);
+    return this.authService.logout_web(response, request);
   }
 
   @Post('forgot-password')
