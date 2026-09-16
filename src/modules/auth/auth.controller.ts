@@ -1,10 +1,11 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Post, Req, Res } from '@nestjs/common';
 import { AuthService } from './auth.service.js';
 import { LoginDTO } from './dto/login.dto.js';
 import { ForgotPasswordDTO } from './dto/forgot-password.dto.js';
 import { ResetPasswordDTO } from './dto/reset-password.dto.js';
 import { RefreshTokenDTO } from './dto/refresh-token.dto.js';
 import { SkipThrottle } from '@nestjs/throttler';
+import type { Response, Request } from 'express';
 
 @SkipThrottle({ global: true })
 @Controller('auth')
@@ -16,14 +17,38 @@ export class AuthController {
     return this.authService.login(loginDto);
   }
 
+  @Post('web/login')
+  web_login(
+    @Body() LoginDTO: LoginDTO,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    return this.web_login(LoginDTO, response);
+  }
+
   @Post('refresh')
-  refresh(@Body() refreshTokenDto: RefreshTokenDTO) {
-    return this.authService.refresh(refreshTokenDto);
+  refresh(@Body() refreshToken: string) {
+    return this.authService.refresh(refreshToken);
+  }
+
+  @Post('web/refresh')
+  web_refresh(
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    return this.web_refresh(request, response);
   }
 
   @Post('logout')
-  logout(@Body() refreshTokenDto: RefreshTokenDTO) {
-    return this.authService.logout(refreshTokenDto);
+  logout(@Body() refreshToken: string) {
+    return this.authService.logout(refreshToken);
+  }
+
+  @Post('web/logout')
+  web_logout(
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    return this.web_logout(request, response);
   }
 
   @Post('forgot-password')

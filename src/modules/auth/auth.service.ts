@@ -16,6 +16,7 @@ import { HashingService } from '../../common/services/hash.service.js';
 import { login_response } from '../../common/helpers/login-response.helper.js';
 import { message_response } from '../../common/helpers/message-response.helper.js';
 import { jwtConstants } from './config/jwt.constants.js';
+import { Response, Request } from 'express';
 
 @Injectable()
 export class AuthService {
@@ -35,24 +36,7 @@ export class AuthService {
   }
 
   async login(loginDto: LoginDTO) {
-    const user = await this.prisma.usuario.findFirst({
-      where: { email: loginDto.email, deletedAt: null },
-    });
-
-    if (!user) {
-      throw new UnauthorizedException('Email ou senha inválidos.');
-    }
-
-    await this.verify_ban(user.email);
-
-    const senhaIsValid = await this.hashService.compare(
-      loginDto.password,
-      user.senha,
-    );
-
-    if (!senhaIsValid) {
-      throw new UnauthorizedException('Email ou senha inválidos.');
-    }
+    const user = await this.login_logical(loginDto);
 
     const accessToken = await this.jwtService.signAsync({
       sub: user.id,
@@ -86,8 +70,28 @@ export class AuthService {
     );
   }
 
-  async refresh(refreshTokenDto: RefreshTokenDTO) {
-    const tokenHash = this.hashToken(refreshTokenDto.refresh_token);
+  async web_login(loginDto: LoginDTO, res: Response) {
+    const tokens = await this.login(loginDto);
+
+    res.cookie('access_token', tokens.access_token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      path: '/',
+    });
+
+    res.cookie('refresh_token', tokens.refresh_token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      path: '/',
+    });
+
+    return message_response('Logado com sucesso', 200);
+  }
+
+  async refresh(refreshToken: string) {
+    const tokenHash = this.hashToken(refreshToken);
 
     const stored = await this.prisma.token_refresh.findUnique({
       where: { token_hash: tokenHash },
@@ -116,6 +120,7 @@ export class AuthService {
     const newAccessToken = await this.jwtService.signAsync({
       sub: user.id,
       email: user.email,
+      cargo: user.cargo,
     });
 
     const newRefreshToken = this.generateRefreshToken();
@@ -143,12 +148,59 @@ export class AuthService {
     );
   }
 
-  async logout(refreshTokenDto: RefreshTokenDTO) {
-    const tokenHash = this.hashToken(refreshTokenDto.refresh_token);
+  async web_refresh(res: Response, req: Request) {
+    const refreshToken = req.cookies?.refresh_token;
+
+    if (!refreshToken)
+      throw new UnauthorizedException('Refresh token não encontrado.');
+
+    const tokens = await this.refresh(refreshToken);
+
+    res.cookie('access_token', tokens.access_token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      path: '/',
+    });
+
+    res.cookie('refresh_token', tokens.refresh_token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      path: '/',
+    });
+
+    return message_response('Token renovado com sucesso.', 200);
+  }
+
+  async logout(refreshToken: string) {
+    const tokenHash = this.hashToken(refreshToken);
     await this.prisma.token_refresh.deleteMany({
       where: { token_hash: tokenHash },
     });
     return message_response('Logout realizado com sucesso.', HttpStatus.OK);
+  }
+
+  async web_logout(res: Response, req: Request) {
+    const refreshToken = req.cookies?.refresh_token;
+    if (refreshToken) {
+      await this.logout(refreshToken);
+    }
+    res.clearCookie('access_token', {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      path: '/',
+    });
+
+    res.clearCookie('refresh_token', {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      path: '/',
+    });
+
+    return message_response('Logout realizado com sucesso.', 200);
   }
 
   async forgot_password(forgotPasswordDto: ForgotPasswordDTO) {
@@ -224,5 +276,28 @@ export class AuthService {
       throw new UnauthorizedException(
         'Você foi banido, não poderá mais usar nosso app.',
       );
+  }
+
+  private async login_logical(data: LoginDTO) {
+    const user = await this.prisma.usuario.findFirst({
+      where: { email: data.email, deletedAt: null },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('Email ou senha inválidos.');
+    }
+
+    await this.verify_ban(user.email);
+
+    const senhaIsValid = await this.hashService.compare(
+      data.password,
+      user.senha,
+    );
+
+    if (!senhaIsValid) {
+      throw new UnauthorizedException('Email ou senha inválidos.');
+    }
+
+    return user;
   }
 }
