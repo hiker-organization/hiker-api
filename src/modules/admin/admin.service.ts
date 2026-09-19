@@ -20,7 +20,7 @@ export class AdminService {
   }
 
   async show_users(query: GetUsersDTO) {
-    return await this.get_users(query.page, query.limit);
+    return await this.get_users(query.page, query.limit, query.sortBy, query.order);
   }
 
   async show_user(nick: string) {
@@ -72,13 +72,13 @@ export class AdminService {
     return user;
   }
 
-  private async get_users(page = 1, limit = 10) {
+  private async get_users(page = 1, limit = 10, sortBy = 'id', order = 'asc') {
     const skip = (page - 1) * limit;
     const [users, total] = await Promise.all([
       this.prisma.usuario.findMany({
         skip,
         take: limit,
-        orderBy: { id: 'asc' },
+        orderBy: { [sortBy]: order },
         select: {
           id: true,
           nome_usuario: true,

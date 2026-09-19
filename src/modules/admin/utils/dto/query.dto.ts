@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsIn, IsInt, IsOptional, Max, Min } from 'class-validator';
+import type { ordenation, sortField } from '../enums/sorted.enum.js';
 
 export class GetUsersDTO {
   @IsOptional()
@@ -14,4 +15,12 @@ export class GetUsersDTO {
   @Min(1)
   @Max(50)
   limit?: number;
+
+  @IsIn(["id", "nome_exibicao", "email"], {message: "Campo de ordenação inválido."})
+  @IsOptional()
+  sortBy?: sortField
+
+  @IsIn(["asc", "desc"], {message: "Campo de ordenação inválido."})
+  @IsOptional()
+  order?: ordenation
 }
