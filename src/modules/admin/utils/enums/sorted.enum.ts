@@ -1,3 +1,3 @@
-export type sortField = 'id' | 'nome_exibicao' | 'email'
+export type sortField = 'id' | 'nome_exibicao' | 'email';
 
-export type ordenation = 'asc' | 'desc'
+export type ordenation = 'asc' | 'desc';

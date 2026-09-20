@@ -18,6 +18,7 @@ import { create_response } from '../../common/helpers/create-response.helper.js'
 import { get_response } from '../../common/helpers/get-response.helper.js';
 import { message_response } from '../../common/helpers/message-response.helper.js';
 import { Usuario } from '../../../generated/prisma/client.js';
+import { map } from 'rxjs';
 
 @Injectable()
 export class ReviewService {
@@ -142,6 +143,82 @@ export class ReviewService {
     );
     return {
       ...get_response('reviews disponíveis', data, HttpStatus.OK),
+      nextCursor,
+    };
+  }
+
+  async get_local_reviews(
+    id: string,
+    query: GetReviewsQueryDTO,
+    token: PayloadDTO,
+  ) {
+    const limit = query.limit ?? 20;
+    const reviews = await this.prisma.review.findMany({
+      take: limit + 1,
+      skip: query.cursor ? 1 : 0,
+      ...(query.cursor && {
+        cursor: { id: query.cursor },
+      }),
+      orderBy: {
+        id: 'desc',
+      },
+      where: { oculto: false, deletedAt: null, id_local: id },
+      select: {
+        id: true,
+        descricao: true,
+        id_local: true,
+        local: true,
+        qnt_likes: true,
+        qnt_dislikes: true,
+        nota: true,
+        createdAt: true,
+        autor: {
+          select: {
+            nome_exibicao: true,
+            foto_url: true,
+            reputacao: true,
+            nome_usuario: true,
+          },
+        },
+        fotos: { select: { url: true } },
+        tags: {
+          select: {
+            tag: {
+              select: { descritivo: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (reviews.length === 0)
+      throw new NotFoundException('nenhuma review encontrada no momento.');
+
+    const hasNextPage = reviews.length > limit;
+    const data = hasNextPage ? reviews.slice(0, limit) : reviews;
+    const nextCursor = hasNextPage ? data[data.length - 1].id : null;
+
+    const reactions = await this.get_user_reactions_for_reviews(
+      data.map((review) => review.id),
+      token.sub,
+    );
+
+    return {
+      message: 'Reviews disponíveis',
+      data: data.map((review) => ({
+        ...review,
+        liked: reactions.get(review.id) === 'LIKE',
+        disliked: reactions.get(review.id) === 'DISLIKE',
+        fotos: review.fotos.map((foto) => ({
+          url: `${process.env.API_STATIC_REVIEWS}${foto.url}`,
+        })),
+        autor: {
+          ...review.autor,
+          foto_url: review.autor.foto_url
+            ? `${process.env.API_STATIC_USER}${review.autor.foto_url}`
+            : null,
+        },
+      })),
       nextCursor,
     };
   }

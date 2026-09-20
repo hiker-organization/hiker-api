@@ -24,12 +24,12 @@ import { GetReviewsQueryDTO } from './dtos/get-reviews-query.dto.js';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { SkipThrottle } from '@nestjs/throttler';
 
+@UseGuards(AuthToken)
 @SkipThrottle({ auth: true })
 @Controller('review')
 export class ReviewController {
   constructor(private readonly service: ReviewService) {}
 
-  @UseGuards(AuthToken)
   @UseInterceptors(FilesInterceptor('fotos', 5))
   @Post()
   create_review(
@@ -55,7 +55,6 @@ export class ReviewController {
     return this.service.create_review(data, token, fotos);
   }
 
-  @UseGuards(AuthToken)
   @Get()
   get_reviews(
     @Query() query: GetReviewsQueryDTO,
@@ -64,7 +63,15 @@ export class ReviewController {
     return this.service.get_reviews(query, token);
   }
 
-  @UseGuards(AuthToken)
+  @Get('/local/:id')
+  get(
+    @Param('id') local: string,
+    @Query() query: GetReviewsQueryDTO,
+    @TokenPayloadParam() token: PayloadDTO,
+  ) {
+    return this.service.get_local_reviews(local, query, token);
+  }
+
   @Get('/search/:term')
   search_reviews(
     @Param('term') term: string,
@@ -74,7 +81,6 @@ export class ReviewController {
     return this.service.search_reviews(term, query, token);
   }
 
-  @UseGuards(AuthToken)
   @Get('/:id')
   get_review(
     @Param('id', ParseIntPipe) id: number,
@@ -83,7 +89,6 @@ export class ReviewController {
     return this.service.get_review(id, token);
   }
 
-  @UseGuards(AuthToken)
   @Delete('/:id')
   delete_review(
     @Param('id', ParseIntPipe) id: number,
@@ -92,7 +97,6 @@ export class ReviewController {
     return this.service.delete_review(id, token);
   }
 
-  @UseGuards(AuthToken)
   @Post('/:id/like')
   like_review(
     @Param('id', ParseIntPipe) id: number,
@@ -101,7 +105,6 @@ export class ReviewController {
     return this.service.like_review(id, token);
   }
 
-  @UseGuards(AuthToken)
   @Post('/:id/dislike')
   dislike_review(
     @Param('id', ParseIntPipe) id: number,
@@ -110,7 +113,6 @@ export class ReviewController {
     return this.service.dislike_review(id, token);
   }
 
-  @UseGuards(AuthToken)
   @Patch('/:id/visibility')
   change_review_visibility(
     @Param('id', ParseIntPipe) id: number,

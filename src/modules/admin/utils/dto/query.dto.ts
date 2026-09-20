@@ -16,11 +16,13 @@ export class GetUsersDTO {
   @Max(50)
   limit?: number;
 
-  @IsIn(["id", "nome_exibicao", "email"], {message: "Campo de ordenação inválido."})
+  @IsIn(['id', 'nome_exibicao', 'email'], {
+    message: 'Campo de ordenação inválido.',
+  })
   @IsOptional()
-  sortBy?: sortField
+  sortBy?: sortField;
 
-  @IsIn(["asc", "desc"], {message: "Campo de ordenação inválido."})
+  @IsIn(['asc', 'desc'], { message: 'Campo de ordenação inválido.' })
   @IsOptional()
-  order?: ordenation
+  order?: ordenation;
 }

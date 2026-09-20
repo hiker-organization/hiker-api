@@ -20,7 +20,12 @@ export class AdminService {
   }
 
   async show_users(query: GetUsersDTO) {
-    return await this.get_users(query.page, query.limit, query.sortBy, query.order);
+    return await this.get_users(
+      query.page,
+      query.limit,
+      query.sortBy,
+      query.order,
+    );
   }
 
   async show_user(nick: string) {
