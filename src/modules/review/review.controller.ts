@@ -63,6 +63,22 @@ export class ReviewController {
     return this.service.get_reviews(query, token);
   }
 
+  @Post('/favorite/:id')
+  fav_review(
+    @Param('id', ParseIntPipe) id: number,
+    @TokenPayloadParam() token: PayloadDTO,
+  ) {
+    return this.service.favorite(id, token);
+  }
+
+  @Delete('/favorite/:id')
+  unfav_review(
+    @Param('id', ParseIntPipe) id: number,
+    @TokenPayloadParam() token: PayloadDTO,
+  ) {
+    return this.service.unfavorite(id, token);
+  }
+
   @Get('/local/:id')
   get(
     @Param('id') local: string,

@@ -5,6 +5,7 @@ import {
   NotFoundException,
   ForbiddenException,
   UnauthorizedException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateReviewDTO } from './dtos/create-review.dto.js';
@@ -17,8 +18,6 @@ import { FileService } from '../../common/services/file.service.js';
 import { create_response } from '../../common/helpers/create-response.helper.js';
 import { get_response } from '../../common/helpers/get-response.helper.js';
 import { message_response } from '../../common/helpers/message-response.helper.js';
-import { Usuario } from '../../../generated/prisma/client.js';
-import { map } from 'rxjs';
 
 @Injectable()
 export class ReviewService {
@@ -133,6 +132,69 @@ export class ReviewService {
         },
         HttpStatus.CREATED,
       );
+    });
+  }
+
+  async favorite(id: number, token: PayloadDTO) {
+    return await this.prisma.$transaction(async (fav) => {
+      const review = await fav.review.findUnique({ where: { id: id } });
+      if (!review) throw new NotFoundException('Esta review não existe mais.');
+
+      const verify = await fav.review_favorita.findUnique({
+        where: {
+          id_usuario_id_review: { id_review: id, id_usuario: token.sub },
+        },
+      });
+
+      if (verify)
+        throw new UnprocessableEntityException(
+          'Ação indisponível, já favoritada.',
+        );
+
+      await fav.review_favorita.create({
+        data: {
+          id_review: id,
+          id_usuario: token.sub,
+        },
+      });
+
+      await fav.review.update({
+        where: { id: id },
+        data: { qnt_favoritos: { increment: 1 } },
+      });
+
+      return message_response('Favoritada com sucesso.', 201);
+    });
+  }
+
+  async unfavorite(id: number, token: PayloadDTO) {
+    return await this.prisma.$transaction(async (fav) => {
+      const review = await fav.review.findUnique({ where: { id: id } });
+      if (!review) throw new NotFoundException('Esta review não existe mais.');
+
+      const verify = await fav.review_favorita.findUnique({
+        where: {
+          id_usuario_id_review: { id_review: id, id_usuario: token.sub },
+        },
+      });
+
+      if (!verify)
+        throw new UnprocessableEntityException(
+          'Ação indisponível, nada a remover.',
+        );
+
+      await fav.review_favorita.delete({
+        where: {
+          id_usuario_id_review: { id_review: id, id_usuario: token.sub },
+        },
+      });
+
+      await fav.review.update({
+        where: { id: id },
+        data: { qnt_favoritos: { decrement: 1 } },
+      });
+
+      return message_response('Removida com sucesso.', 200);
     });
   }
 
@@ -433,6 +495,7 @@ export class ReviewService {
         local: true,
         qnt_likes: true,
         qnt_dislikes: true,
+        qnt_favoritos: true,
         nota: true,
         createdAt: true,
         autor: {
@@ -503,6 +566,7 @@ export class ReviewService {
         descricao: true,
         local: true,
         qnt_likes: true,
+        qnt_favoritos: true,
         qnt_dislikes: true,
         nota: true,
         createdAt: true,
@@ -592,6 +656,7 @@ export class ReviewService {
         local: true,
         qnt_likes: true,
         qnt_dislikes: true,
+        qnt_favoritos: true,
         nota: true,
         createdAt: true,
         autor: {

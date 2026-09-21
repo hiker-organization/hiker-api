@@ -84,7 +84,7 @@ model Review_favorita {
   id_usuario          Int
   id_review         Int
 
-  createdAt         DateTime
+  createdAt         DateTime          @default(now())
 
   usuario         Usuario         @relation(fields: [id_usuario], references: [id], onDelete: Cascade)
   review          Review          @relation(fields: [id_review], references: [id], onDelete: Cascade)

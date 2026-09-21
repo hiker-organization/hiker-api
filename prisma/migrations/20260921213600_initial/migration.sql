@@ -63,7 +63,7 @@ CREATE TABLE "Review_favorita" (
     "id" SERIAL NOT NULL,
     "id_usuario" INTEGER NOT NULL,
     "id_review" INTEGER NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Review_favorita_pkey" PRIMARY KEY ("id")
 );
