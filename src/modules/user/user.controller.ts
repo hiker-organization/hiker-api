@@ -7,6 +7,7 @@ import {
   ParseFilePipeBuilder,
   Patch,
   Post,
+  Query,
   UnprocessableEntityException,
   UploadedFile,
   UseGuards,
@@ -21,6 +22,7 @@ import { AuthToken } from '../auth/guard/auth.guard.js';
 import { UpdateUserDTO } from './dtos/updateUser.dto.js';
 import { UpdatePasswordDTO } from './dtos/updatePassword.dto.js';
 import { SkipThrottle } from '@nestjs/throttler';
+import { GetReviewsQueryDTO } from '../review/dtos/get-reviews-query.dto.js';
 
 @SkipThrottle({ auth: true })
 @Controller('user')
@@ -82,6 +84,15 @@ export class UserController {
   @Get('/me')
   get_me(@TokenPayloadParam() token: PayloadDTO) {
     return this.service.get_me(token);
+  }
+
+  @UseGuards(AuthToken)
+  @Get('/me/favorites')
+  favorites_reviews(
+    @TokenPayloadParam() token: PayloadDTO,
+    @Query() query: GetReviewsQueryDTO,
+  ) {
+    return this.service.favorites(token, query);
   }
 
   @UseGuards(AuthToken)

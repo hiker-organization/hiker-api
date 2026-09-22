@@ -530,10 +530,20 @@ export class ReviewService {
       },
     });
 
+    const favorited = await this.prisma.review_favorita.findUnique({
+      where: {
+        id_usuario_id_review: {
+          id_usuario: userId,
+          id_review: id,
+        },
+      },
+    });
+
     return {
       ...review,
       liked: reaction?.tipo === 'LIKE',
       disliked: reaction?.tipo === 'DISLIKE',
+      favorited: favorited !== null,
       fotos: review.fotos.map((foto) => ({
         url: `${process.env.API_STATIC_REVIEWS}${foto.url}`,
       })),
@@ -601,11 +611,17 @@ export class ReviewService {
       userId,
     );
 
+    const favoriteIds = await this.favorited_reviews(
+      data.map((review) => review.id),
+      userId,
+    );
+
     return {
       data: data.map((review) => ({
         ...review,
         liked: reactions.get(review.id) === 'LIKE',
         disliked: reactions.get(review.id) === 'DISLIKE',
+        favorited: favoriteIds.has(review.id),
         fotos: review.fotos.map((foto) => ({
           url: `${process.env.API_STATIC_REVIEWS}${foto.url}`,
         })),
@@ -687,11 +703,17 @@ export class ReviewService {
       userId,
     );
 
+    const favoriteIds = await this.favorited_reviews(
+      data.map((review) => review.id),
+      userId,
+    );
+
     return {
       data: data.map((review) => ({
         ...review,
         liked: reactions.get(review.id) === 'LIKE',
         disliked: reactions.get(review.id) === 'DISLIKE',
+        favorited: favoriteIds.has(review.id),
         fotos: review.fotos.map((foto) => ({
           url: `${process.env.API_STATIC_REVIEWS}${foto.url}`,
         })),
@@ -745,5 +767,27 @@ export class ReviewService {
     });
 
     return reactionMap;
+  }
+
+  private async favorited_reviews(reviewsId: number[], userId: number) {
+    if (reviewsId.length === 0) return new Set<number>();
+
+    const favorites = await this.prisma.review_favorita.findMany({
+      where: {
+        id_usuario: userId,
+        id_review: {
+          in: reviewsId,
+        },
+      },
+      select: {
+        id_review: true,
+      },
+    });
+
+    const favoriteIds = new Set(
+      favorites.map((favorite) => favorite.id_review),
+    );
+
+    return favoriteIds;
   }
 }

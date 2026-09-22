@@ -17,6 +17,8 @@ import { get_response } from '../../common/helpers/get-response.helper.js';
 import { UpdateUserDTO } from './dtos/updateUser.dto.js';
 import { message_response } from '../../common/helpers/message-response.helper.js';
 import { UpdatePasswordDTO } from './dtos/updatePassword.dto.js';
+import { GetReviewsQueryDTO } from '../review/dtos/get-reviews-query.dto.js';
+import { Review } from '../../../generated/prisma/client.js';
 
 @Injectable()
 export class UserService {
@@ -98,6 +100,80 @@ export class UserService {
   async get_me(token: PayloadDTO) {
     const user = await this.get_user_with_full_data(token.sub);
     return get_response('Seu perfil abaixo', user, 200);
+  }
+
+  async favorites(token: PayloadDTO, query: GetReviewsQueryDTO) {
+    const limit = query.limit ?? 20;
+    const reviews = await this.prisma.review_favorita.findMany({
+      take: limit + 1,
+      skip: query.cursor ? 1 : 0,
+      ...(query.cursor && {
+        cursor: { id: query.cursor },
+      }),
+      where: { review: { deletedAt: null } },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        review: {
+          select: {
+            id: true,
+            id_local: true,
+            local: true,
+            descricao: true,
+            nota: true,
+            createdAt: true,
+            qnt_likes: true,
+            qnt_dislikes: true,
+            qnt_favoritos: true,
+            fotos: { select: { url: true } },
+            oculto: true,
+            autor: {
+              select: {
+                nome_exibicao: true,
+                foto_url: true,
+                reputacao: true,
+                nome_usuario: true,
+              },
+            },
+            tags: { select: { tag: { select: { descritivo: true } } } },
+          },
+        },
+      },
+    });
+
+    if (reviews.length === 0)
+      throw new NotFoundException('Nehuma review favoritada para mostrar.');
+
+    const hasNextPage = reviews.length > limit;
+    const data = hasNextPage ? reviews.slice(0, limit) : reviews;
+    const nextCursor = hasNextPage ? data[data.length - 1].review.id : null;
+
+    const favoriteIds = await this.favorited_reviews(
+      reviews.map((review) => review.review.id),
+      token.sub,
+    );
+    const reactions = await this.get_user_reactions_for_reviews(
+      data.map((review) => review.review.id),
+      token.sub,
+    );
+
+    return {
+      data: data.map((review) => ({
+        ...review,
+        liked: reactions.get(review.review.id) === 'LIKE',
+        disliked: reactions.get(review.review.id) === 'DISLIKE',
+        favorited: favoriteIds.has(review.review.id),
+        fotos: review.review.fotos.map((foto) => ({
+          url: `${process.env.API_STATIC_REVIEWS}${foto.url}`,
+        })),
+        autor: {
+          ...review.review.autor,
+          foto_url: review.review.autor.foto_url
+            ? `${process.env.API_STATIC_USER}${review.review.autor.foto_url}`
+            : null,
+        },
+      })),
+      nextCursor,
+    };
   }
 
   async update_user(
@@ -281,6 +357,11 @@ export class UserService {
       viewerId,
     );
 
+    const favoriteIds = await this.favorited_reviews(
+      user.reviews.map((review) => review.id),
+      viewerId,
+    );
+
     return {
       ...user,
       foto_url: user.foto_url
@@ -290,6 +371,7 @@ export class UserService {
         ...review,
         liked: reactionMap.get(review.id) === 'LIKE',
         disliked: reactionMap.get(review.id) === 'DISLIKE',
+        favorited: favoriteIds.has(review.id),
         fotos: review.fotos.map((foto) => ({
           ...foto,
           url: `${process.env.API_STATIC_REVIEWS}${foto.url}`,
@@ -297,7 +379,6 @@ export class UserService {
       })),
     };
   }
-
   private async get_user_reactions_for_reviews(
     reviewIds: number[],
     userId: number,
@@ -326,5 +407,26 @@ export class UserService {
     });
 
     return reactionMap;
+  }
+  private async favorited_reviews(reviewsId: number[], userId: number) {
+    if (reviewsId.length === 0) return new Set<number>();
+
+    const favorites = await this.prisma.review_favorita.findMany({
+      where: {
+        id_usuario: userId,
+        id_review: {
+          in: reviewsId,
+        },
+      },
+      select: {
+        id_review: true,
+      },
+    });
+
+    const favoriteIds = new Set(
+      favorites.map((favorite) => favorite.id_review),
+    );
+
+    return favoriteIds;
   }
 }
