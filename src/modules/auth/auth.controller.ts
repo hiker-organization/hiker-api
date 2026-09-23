@@ -4,6 +4,7 @@ import { LoginDTO } from './dto/login.dto.js';
 import { ForgotPasswordDTO } from './dto/forgot-password.dto.js';
 import { ResetPasswordDTO } from './dto/reset-password.dto.js';
 import { RefreshTokenDTO } from './dto/refresh-token.dto.js';
+import { VerifyResetCodeDTO } from './dto/verify-reset-code.dto.js';
 import { SkipThrottle } from '@nestjs/throttler';
 import type { Response, Request } from 'express';
 
@@ -54,6 +55,11 @@ export class AuthController {
   @Post('forgot-password')
   forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDTO) {
     return this.authService.forgot_password(forgotPasswordDto);
+  }
+
+  @Post('verify-reset-code')
+  verifyResetCode(@Body() verifyResetCodeDto: VerifyResetCodeDTO) {
+    return this.authService.verify_reset_code(verifyResetCodeDto);
   }
 
   @Post('reset-password')

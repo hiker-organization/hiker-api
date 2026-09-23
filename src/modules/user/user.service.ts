@@ -7,11 +7,9 @@ import {
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateUserDTO } from './dtos/createUser.dto.js';
 import { create_response } from '../../common/helpers/create-response.helper.js';
-import { FileService } from '../../common/services/file.service.js';
-import path from 'node:path';
-import { mkdir } from 'node:fs/promises';
+import { UploadAzureService } from '../../common/services/upload.azure.service.js';
 import { HashingService } from '../../common/services/hash.service.js';
-import { randomUUID } from 'node:crypto';
+import { getRandomValues } from 'node:crypto';
 import { PayloadDTO } from '../auth/dto/payload.dto.js';
 import { get_response } from '../../common/helpers/get-response.helper.js';
 import { UpdateUserDTO } from './dtos/updateUser.dto.js';
@@ -25,7 +23,7 @@ export class UserService {
   constructor(
     private prisma: PrismaService,
     private readonly hashService: HashingService,
-    private readonly fileService: FileService,
+    private readonly uploadAzureService: UploadAzureService,
   ) {}
 
   async create_user(data: CreateUserDTO, foto?: Express.Multer.File) {
@@ -40,20 +38,10 @@ export class UserService {
     await this.nick_empty_or_fail(nick);
 
     if (foto) {
-      const extName = path
-        .extname(foto?.originalname)
-        .toLowerCase()
-        .substring(1);
-
-      const fileName = `${randomUUID()}.${extName}`;
-
-      const pathMaster = path.resolve(process.cwd(), 'imgs/user', fileName);
-      const dirPath = path.dirname(pathMaster);
-
-      await mkdir(dirPath, { recursive: true });
-      await this.fileService.writeFile(pathMaster, foto.buffer);
-
-      data.foto_url = fileName;
+      data.foto_url = await this.uploadAzureService.addImageUser(
+        foto.buffer,
+        foto.originalname,
+      );
     }
 
     const user = await this.prisma.usuario.create({
@@ -186,27 +174,14 @@ export class UserService {
     data.nome_usuario = data.nome_usuario ? `@${data.nome_usuario}` : undefined;
 
     if (foto) {
-      const extName = path
-        .extname(foto?.originalname)
-        .toLowerCase()
-        .substring(1);
+      data.foto_url = await this.uploadAzureService.addImageUser(
+        foto.buffer,
+        foto.originalname,
+      );
 
       if (user.foto_url) {
-        const oldUrl = user.foto_url;
-        const pathUrl = path.resolve(process.cwd(), 'imgs/user', oldUrl);
-        await this.fileService.deleteFile(pathUrl);
+        await this.uploadAzureService.deleteUserImage(user.foto_url);
       }
-
-      const fileName = `${randomUUID()}.${extName}`;
-
-      const pathMaster = path.resolve(process.cwd(), 'imgs/user', fileName);
-      const dirPath = path.dirname(pathMaster);
-
-      await mkdir(dirPath, { recursive: true });
-
-      await this.fileService.writeFile(pathMaster, foto.buffer);
-
-      data.foto_url = fileName;
     }
 
     const updatedUser = await this.prisma.usuario.update({
@@ -220,16 +195,12 @@ export class UserService {
       },
     });
 
-    return create_response(
-      'Alterado com sucesso.',
-      {
-        ...updatedUser,
-        foto_url: updatedUser.foto_url
-          ? `${process.env.API_STATIC_USER}${updatedUser.foto_url}`
-          : null,
-      },
-      200,
-    );
+    return create_response('Alterado com sucesso.', {
+      ...updatedUser,
+      foto_url: updatedUser.foto_url
+        ? await this.uploadAzureService.getUserImageUrl(updatedUser.foto_url)
+        : null,
+    }, 200);
   }
 
   async update_password(data: UpdatePasswordDTO, token: PayloadDTO) {
@@ -311,18 +282,23 @@ export class UserService {
 
     if (!user) throw new NotFoundException('Usuário não encontrado.');
 
+    const reviews = await Promise.all(
+      user.reviews.map(async (review) => ({
+        ...review,
+        fotos: await Promise.all(
+          review.fotos.map(async (foto) => ({
+            url: await this.uploadAzureService.getReviewImageUrl(foto.url),
+          })),
+        ),
+      })),
+    );
+
     return {
       ...user,
       foto_url: user.foto_url
-        ? `${process.env.API_STATIC_USER}${user.foto_url}`
+        ? await this.uploadAzureService.getUserImageUrl(user.foto_url)
         : null,
-      reviews: user.reviews.map((review) => ({
-        ...review,
-        fotos: review.fotos.map((foto) => ({
-          ...foto,
-          url: `${process.env.API_STATIC_REVIEWS}${foto.url}`,
-        })),
-      })),
+      reviews,
     };
   }
   private async get_user_with_nick(nick: string, viewerId: number) {
@@ -362,21 +338,26 @@ export class UserService {
       viewerId,
     );
 
-    return {
-      ...user,
-      foto_url: user.foto_url
-        ? `${process.env.API_STATIC_USER}${user.foto_url}`
-        : null,
-      reviews: user.reviews.map((review) => ({
+    const reviews = await Promise.all(
+      user.reviews.map(async (review) => ({
         ...review,
         liked: reactionMap.get(review.id) === 'LIKE',
         disliked: reactionMap.get(review.id) === 'DISLIKE',
         favorited: favoriteIds.has(review.id),
-        fotos: review.fotos.map((foto) => ({
-          ...foto,
-          url: `${process.env.API_STATIC_REVIEWS}${foto.url}`,
-        })),
+        fotos: await Promise.all(
+          review.fotos.map(async (foto) => ({
+            url: await this.uploadAzureService.getReviewImageUrl(foto.url),
+          })),
+        ),
       })),
+    );
+
+    return {
+      ...user,
+      foto_url: user.foto_url
+        ? await this.uploadAzureService.getUserImageUrl(user.foto_url)
+        : null,
+      reviews,
     };
   }
   private async get_user_reactions_for_reviews(

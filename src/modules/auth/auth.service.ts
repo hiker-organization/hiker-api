@@ -11,6 +11,7 @@ import { JwtService } from '@nestjs/jwt';
 import { EmailService } from '../../common/services/email.service.js';
 import { ForgotPasswordDTO } from './dto/forgot-password.dto.js';
 import { ResetPasswordDTO } from './dto/reset-password.dto.js';
+import { VerifyResetCodeDTO } from './dto/verify-reset-code.dto.js';
 import { randomInt, randomBytes, createHash } from 'node:crypto';
 import { HashingService } from '../../common/services/hash.service.js';
 import { login_response } from '../../common/helpers/login-response.helper.js';
@@ -235,22 +236,36 @@ export class AuthService {
     );
   }
 
-  async reset_password(resetPasswordDto: ResetPasswordDTO) {
+  private async findValidResetToken(email: string, token: string) {
     const user = await this.prisma.usuario.findFirst({
-      where: { email: resetPasswordDto.email, deletedAt: null },
+      where: { email, deletedAt: null },
     });
 
     if (!user) {
       throw new BadRequestException('Token inválido ou expirado.');
     }
 
-    const token = await this.prisma.token_redefinicao_senha.findFirst({
-      where: { token: resetPasswordDto.token, id_usuario: user.id },
+    const resetToken = await this.prisma.token_redefinicao_senha.findFirst({
+      where: { token, id_usuario: user.id },
     });
 
-    if (!token || token.expira_em < new Date()) {
+    if (!resetToken || resetToken.expira_em < new Date()) {
       throw new BadRequestException('Token inválido ou expirado.');
     }
+
+    return { user, resetToken };
+  }
+
+  async verify_reset_code(verifyResetCodeDto: VerifyResetCodeDTO) {
+    await this.findValidResetToken(verifyResetCodeDto.email, verifyResetCodeDto.token);
+    return message_response('Código válido.', HttpStatus.OK);
+  }
+
+  async reset_password(resetPasswordDto: ResetPasswordDTO) {
+    const { user, resetToken: token } = await this.findValidResetToken(
+      resetPasswordDto.email,
+      resetPasswordDto.token,
+    );
 
     const senhaHash = await this.hashService.hash(resetPasswordDto.senha);
 

@@ -11,10 +11,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateReviewDTO } from './dtos/create-review.dto.js';
 import { GetReviewsQueryDTO } from './dtos/get-reviews-query.dto.js';
 import { PayloadDTO } from '../auth/dto/payload.dto.js';
-import path from 'node:path';
-import { randomUUID } from 'node:crypto';
-import { mkdir } from 'node:fs/promises';
-import { FileService } from '../../common/services/file.service.js';
+import { UploadAzureService } from '../../common/services/upload.azure.service.js';
 import { create_response } from '../../common/helpers/create-response.helper.js';
 import { get_response } from '../../common/helpers/get-response.helper.js';
 import { message_response } from '../../common/helpers/message-response.helper.js';
@@ -23,7 +20,7 @@ import { message_response } from '../../common/helpers/message-response.helper.j
 export class ReviewService {
   constructor(
     private prisma: PrismaService,
-    private readonly fileService: FileService,
+    private readonly uploadAzureService: UploadAzureService,
   ) {}
 
   async create_review(
@@ -38,22 +35,12 @@ export class ReviewService {
     if (fotos && fotos.length > 0) {
       await Promise.all(
         fotos.map(async (foto) => {
-          const extName = path
-            .extname(foto?.originalname)
-            .toLowerCase()
-            .substring(1);
-          const fileName = `${randomUUID()}.${extName}`;
-          const pathMaster = path.resolve(
-            process.cwd(),
-            'imgs/reviews',
-            fileName,
+          const url = await this.uploadAzureService.addImageReview(
+            foto.buffer,
+            foto.originalname,
           );
-          const dirPath = path.dirname(pathMaster);
 
-          await mkdir(dirPath, { recursive: true });
-          await this.fileService.writeFile(pathMaster, foto.buffer);
-
-          fotosUrls.push(fileName);
+          fotosUrls.push(url);
         }),
       );
     }
@@ -122,13 +109,17 @@ export class ReviewService {
         },
       });
 
+      const fotos = await Promise.all(
+        review.fotos.map(async (foto) => ({
+          url: await this.uploadAzureService.getReviewImageUrl(foto.url),
+        })),
+      );
+
       return create_response(
         'Sua review foi criada com sucesso.',
         {
           ...review,
-          fotos: review.fotos.map((foto) => ({
-            url: `${process.env.API_STATIC_REVIEWS}${foto.url}`,
-          })),
+          fotos,
         },
         HttpStatus.CREATED,
       );
@@ -538,19 +529,24 @@ export class ReviewService {
         },
       },
     });
+    const fotos = await Promise.all(
+      review.fotos.map(async (foto) => ({
+        url: await this.uploadAzureService.getReviewImageUrl(foto.url),
+      })),
+    );
 
     return {
       ...review,
       liked: reaction?.tipo === 'LIKE',
       disliked: reaction?.tipo === 'DISLIKE',
       favorited: favorited !== null,
-      fotos: review.fotos.map((foto) => ({
-        url: `${process.env.API_STATIC_REVIEWS}${foto.url}`,
-      })),
+      fotos,
       autor: {
         ...review.autor,
         foto_url: review.autor.foto_url
-          ? `${process.env.API_STATIC_USER}${review.autor.foto_url}`
+          ? await this.uploadAzureService.getUserImageUrl(
+              review.autor.foto_url,
+            )
           : null,
       },
     };
@@ -616,22 +612,28 @@ export class ReviewService {
       userId,
     );
 
-    return {
-      data: data.map((review) => ({
+    const data_with_fotos = await Promise.all(
+      data.map(async (review) => ({
         ...review,
         liked: reactions.get(review.id) === 'LIKE',
-        disliked: reactions.get(review.id) === 'DISLIKE',
         favorited: favoriteIds.has(review.id),
-        fotos: review.fotos.map((foto) => ({
-          url: `${process.env.API_STATIC_REVIEWS}${foto.url}`,
-        })),
+        disliked: reactions.get(review.id) === 'DISLIKE',
+        fotos: await Promise.all(
+          review.fotos.map(async (foto) => ({
+            url: await this.uploadAzureService.getReviewImageUrl(foto.url),
+          })),
+        ),
         autor: {
           ...review.autor,
           foto_url: review.autor.foto_url
-            ? `${process.env.API_STATIC_USER}${review.autor.foto_url}`
+            ? `${await this.uploadAzureService.getUserImageUrl(review.autor.foto_url)}`
             : null,
         },
       })),
+    );
+
+    return {
+      data: data_with_fotos,
       nextCursor,
     };
   }
@@ -707,23 +709,29 @@ export class ReviewService {
       data.map((review) => review.id),
       userId,
     );
-
-    return {
-      data: data.map((review) => ({
+      
+    const data_with_fotos = await Promise.all(
+      data.map(async (review) => ({
         ...review,
         liked: reactions.get(review.id) === 'LIKE',
-        disliked: reactions.get(review.id) === 'DISLIKE',
         favorited: favoriteIds.has(review.id),
-        fotos: review.fotos.map((foto) => ({
-          url: `${process.env.API_STATIC_REVIEWS}${foto.url}`,
-        })),
+        disliked: reactions.get(review.id) === 'DISLIKE',
+        fotos: await Promise.all(
+          review.fotos.map(async (foto) => ({
+            url: await this.uploadAzureService.getReviewImageUrl(foto.url),
+          })),
+        ),
         autor: {
           ...review.autor,
           foto_url: review.autor.foto_url
-            ? `${process.env.API_STATIC_USER}${review.autor.foto_url}`
+            ? `${await this.uploadAzureService.getUserImageUrl(review.autor.foto_url)}`
             : null,
         },
       })),
+    );
+
+    return {
+      data: data_with_fotos,
       nextCursor,
     };
   }
