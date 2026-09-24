@@ -4,6 +4,8 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  UnauthorizedException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateReviewDTO } from './dtos/create-review.dto.js';
@@ -27,6 +29,8 @@ export class ReviewService {
     fotos?: Array<Express.Multer.File>,
   ) {
     const fotosUrls: string[] = [];
+
+    await this.verify_block(token);
 
     if (fotos && fotos.length > 0) {
       await Promise.all(
@@ -122,11 +126,152 @@ export class ReviewService {
     });
   }
 
+  async favorite(id: number, token: PayloadDTO) {
+    return await this.prisma.$transaction(async (fav) => {
+      const review = await fav.review.findUnique({ where: { id: id } });
+      if (!review) throw new NotFoundException('Esta review não existe mais.');
+
+      const verify = await fav.review_favorita.findUnique({
+        where: {
+          id_usuario_id_review: { id_review: id, id_usuario: token.sub },
+        },
+      });
+
+      if (verify)
+        throw new UnprocessableEntityException(
+          'Ação indisponível, já favoritada.',
+        );
+
+      await fav.review_favorita.create({
+        data: {
+          id_review: id,
+          id_usuario: token.sub,
+        },
+      });
+
+      await fav.review.update({
+        where: { id: id },
+        data: { qnt_favoritos: { increment: 1 } },
+      });
+
+      return message_response('Favoritada com sucesso.', 201);
+    });
+  }
+
+  async unfavorite(id: number, token: PayloadDTO) {
+    return await this.prisma.$transaction(async (fav) => {
+      const review = await fav.review.findUnique({ where: { id: id } });
+      if (!review) throw new NotFoundException('Esta review não existe mais.');
+
+      const verify = await fav.review_favorita.findUnique({
+        where: {
+          id_usuario_id_review: { id_review: id, id_usuario: token.sub },
+        },
+      });
+
+      if (!verify)
+        throw new UnprocessableEntityException(
+          'Ação indisponível, nada a remover.',
+        );
+
+      await fav.review_favorita.delete({
+        where: {
+          id_usuario_id_review: { id_review: id, id_usuario: token.sub },
+        },
+      });
+
+      await fav.review.update({
+        where: { id: id },
+        data: { qnt_favoritos: { decrement: 1 } },
+      });
+
+      return message_response('Removida com sucesso.', 200);
+    });
+  }
+
   async get_reviews(query: GetReviewsQueryDTO, token: PayloadDTO) {
-    const { data, nextCursor } =
-      await this.find_reviews_with_full_content(query, token.sub);
+    const { data, nextCursor } = await this.find_reviews_with_full_content(
+      query,
+      token.sub,
+    );
     return {
       ...get_response('reviews disponíveis', data, HttpStatus.OK),
+      nextCursor,
+    };
+  }
+
+  async get_local_reviews(
+    id: string,
+    query: GetReviewsQueryDTO,
+    token: PayloadDTO,
+  ) {
+    const limit = query.limit ?? 20;
+    const reviews = await this.prisma.review.findMany({
+      take: limit + 1,
+      skip: query.cursor ? 1 : 0,
+      ...(query.cursor && {
+        cursor: { id: query.cursor },
+      }),
+      orderBy: {
+        id: 'desc',
+      },
+      where: { oculto: false, deletedAt: null, id_local: id },
+      select: {
+        id: true,
+        descricao: true,
+        id_local: true,
+        local: true,
+        qnt_likes: true,
+        qnt_dislikes: true,
+        nota: true,
+        createdAt: true,
+        autor: {
+          select: {
+            nome_exibicao: true,
+            foto_url: true,
+            reputacao: true,
+            nome_usuario: true,
+          },
+        },
+        fotos: { select: { url: true } },
+        tags: {
+          select: {
+            tag: {
+              select: { descritivo: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (reviews.length === 0)
+      throw new NotFoundException('nenhuma review encontrada no momento.');
+
+    const hasNextPage = reviews.length > limit;
+    const data = hasNextPage ? reviews.slice(0, limit) : reviews;
+    const nextCursor = hasNextPage ? data[data.length - 1].id : null;
+
+    const reactions = await this.get_user_reactions_for_reviews(
+      data.map((review) => review.id),
+      token.sub,
+    );
+
+    return {
+      message: 'Reviews disponíveis',
+      data: data.map((review) => ({
+        ...review,
+        liked: reactions.get(review.id) === 'LIKE',
+        disliked: reactions.get(review.id) === 'DISLIKE',
+        fotos: review.fotos.map((foto) => ({
+          url: `${process.env.API_STATIC_REVIEWS}${foto.url}`,
+        })),
+        autor: {
+          ...review.autor,
+          foto_url: review.autor.foto_url
+            ? `${process.env.API_STATIC_USER}${review.autor.foto_url}`
+            : null,
+        },
+      })),
       nextCursor,
     };
   }
@@ -162,6 +307,8 @@ export class ReviewService {
   }
 
   async like_review(id: number, token: PayloadDTO) {
+    await this.verify_block(token);
+
     return await this.prisma.$transaction(async (lk) => {
       const review = await lk.review.findUnique({
         where: { id: id },
@@ -212,6 +359,8 @@ export class ReviewService {
   }
 
   async dislike_review(id: number, token: PayloadDTO) {
+    await this.verify_block(token);
+
     return await this.prisma.$transaction(async (dlk) => {
       const review = await dlk.review.findUnique({
         where: { id: id },
@@ -288,6 +437,22 @@ export class ReviewService {
     );
   }
 
+  private async verify_block(token: PayloadDTO) {
+    const user = await this.prisma.usuario.findUnique({
+      where: { email: token.email },
+    });
+
+    if (user!.banido)
+      throw new UnauthorizedException(
+        'Você está banido, não poderá mais acessar nossos recursos.',
+      );
+
+    if (user!.bloqueado && user!.bloqueado_ate! > new Date())
+      throw new UnauthorizedException(
+        'Você está bloqueado, não poderá realizar esta ação.',
+      );
+  }
+
   private async calc_reputation(id_user: number, tx?: any) {
     const prismaClient = tx || this.prisma;
 
@@ -321,6 +486,7 @@ export class ReviewService {
         local: true,
         qnt_likes: true,
         qnt_dislikes: true,
+        qnt_favoritos: true,
         nota: true,
         createdAt: true,
         autor: {
@@ -355,6 +521,14 @@ export class ReviewService {
       },
     });
 
+    const favorited = await this.prisma.review_favorita.findUnique({
+      where: {
+        id_usuario_id_review: {
+          id_usuario: userId,
+          id_review: id,
+        },
+      },
+    });
     const fotos = await Promise.all(
       review.fotos.map(async (foto) => ({
         url: await this.uploadAzureService.getReviewImageUrl(foto.url),
@@ -365,6 +539,7 @@ export class ReviewService {
       ...review,
       liked: reaction?.tipo === 'LIKE',
       disliked: reaction?.tipo === 'DISLIKE',
+      favorited: favorited !== null,
       fotos,
       autor: {
         ...review.autor,
@@ -397,6 +572,7 @@ export class ReviewService {
         descricao: true,
         local: true,
         qnt_likes: true,
+        qnt_favoritos: true,
         qnt_dislikes: true,
         nota: true,
         createdAt: true,
@@ -431,10 +607,16 @@ export class ReviewService {
       userId,
     );
 
+    const favoriteIds = await this.favorited_reviews(
+      data.map((review) => review.id),
+      userId,
+    );
+
     const data_with_fotos = await Promise.all(
       data.map(async (review) => ({
         ...review,
         liked: reactions.get(review.id) === 'LIKE',
+        favorited: favoriteIds.has(review.id),
         disliked: reactions.get(review.id) === 'DISLIKE',
         fotos: await Promise.all(
           review.fotos.map(async (foto) => ({
@@ -492,6 +674,7 @@ export class ReviewService {
         local: true,
         qnt_likes: true,
         qnt_dislikes: true,
+        qnt_favoritos: true,
         nota: true,
         createdAt: true,
         autor: {
@@ -522,10 +705,16 @@ export class ReviewService {
       userId,
     );
 
+    const favoriteIds = await this.favorited_reviews(
+      data.map((review) => review.id),
+      userId,
+    );
+      
     const data_with_fotos = await Promise.all(
       data.map(async (review) => ({
         ...review,
         liked: reactions.get(review.id) === 'LIKE',
+        favorited: favoriteIds.has(review.id),
         disliked: reactions.get(review.id) === 'DISLIKE',
         fotos: await Promise.all(
           review.fotos.map(async (foto) => ({
@@ -586,5 +775,27 @@ export class ReviewService {
     });
 
     return reactionMap;
+  }
+
+  private async favorited_reviews(reviewsId: number[], userId: number) {
+    if (reviewsId.length === 0) return new Set<number>();
+
+    const favorites = await this.prisma.review_favorita.findMany({
+      where: {
+        id_usuario: userId,
+        id_review: {
+          in: reviewsId,
+        },
+      },
+      select: {
+        id_review: true,
+      },
+    });
+
+    const favoriteIds = new Set(
+      favorites.map((favorite) => favorite.id_review),
+    );
+
+    return favoriteIds;
   }
 }

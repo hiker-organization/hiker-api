@@ -15,6 +15,7 @@ export class AuthToken implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request: Request = context.switchToHttp().getRequest();
     const token = this.extract_token(request);
+
     if (!token) throw new UnauthorizedException('token não encontrado.');
 
     try {
@@ -29,7 +30,10 @@ export class AuthToken implements CanActivate {
 
   private extract_token(req: Request) {
     const authorization = req.headers?.authorization;
-    if (!authorization || typeof authorization != 'string') return;
-    return authorization.split(' ')[1];
+    if (authorization) {
+      const [type, token] = authorization.split(' ');
+      if (type === 'Bearer' && token) return token;
+    }
+    return req.cookies?.access_token;
   }
 }
