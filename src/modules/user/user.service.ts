@@ -84,8 +84,7 @@ export class UserService {
         email: suffix,
         nome_exibicao: `Usuário desativado`,
         nome_usuario: suffix,
-        numero_celular: suffix,
-        data_nascimento: suffix,
+        numero_celular: suffix
       },
     });
 
@@ -110,7 +109,7 @@ export class UserService {
       ...(query.cursor && {
         cursor: { id: query.cursor },
       }),
-      where: { review: { deletedAt: null } },
+      where: { review: { deletedAt: null, id_usuario: token.sub } },
       orderBy: { createdAt: 'desc' },
       select: {
         review: {
