@@ -9,14 +9,12 @@ import { CreateUserDTO } from './dtos/createUser.dto.js';
 import { create_response } from '../../common/helpers/create-response.helper.js';
 import { UploadAzureService } from '../../common/services/upload.azure.service.js';
 import { HashingService } from '../../common/services/hash.service.js';
-import { getRandomValues } from 'node:crypto';
 import { PayloadDTO } from '../auth/dto/payload.dto.js';
 import { get_response } from '../../common/helpers/get-response.helper.js';
 import { UpdateUserDTO } from './dtos/updateUser.dto.js';
 import { message_response } from '../../common/helpers/message-response.helper.js';
 import { UpdatePasswordDTO } from './dtos/updatePassword.dto.js';
 import { GetReviewsQueryDTO } from '../review/dtos/get-reviews-query.dto.js';
-import { Review } from '../../../generated/prisma/client.js';
 
 @Injectable()
 export class UserService {
@@ -72,7 +70,7 @@ export class UserService {
         email: suffix,
         nome_exibicao: `Usuário desativado`,
         nome_usuario: suffix,
-        numero_celular: suffix
+        numero_celular: suffix,
       },
     });
 
@@ -194,12 +192,16 @@ export class UserService {
       },
     });
 
-    return create_response('Alterado com sucesso.', {
-      ...updatedUser,
-      foto_url: updatedUser.foto_url
-        ? await this.uploadAzureService.getUserImageUrl(updatedUser.foto_url)
-        : null,
-    }, 200);
+    return create_response(
+      'Alterado com sucesso.',
+      {
+        ...updatedUser,
+        foto_url: updatedUser.foto_url
+          ? await this.uploadAzureService.getUserImageUrl(updatedUser.foto_url)
+          : null,
+      },
+      200,
+    );
   }
 
   async update_password(data: UpdatePasswordDTO, token: PayloadDTO) {

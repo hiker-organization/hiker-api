@@ -257,7 +257,10 @@ export class AuthService {
   }
 
   async verify_reset_code(verifyResetCodeDto: VerifyResetCodeDTO) {
-    await this.findValidResetToken(verifyResetCodeDto.email, verifyResetCodeDto.token);
+    await this.findValidResetToken(
+      verifyResetCodeDto.email,
+      verifyResetCodeDto.token,
+    );
     return message_response('Código válido.', HttpStatus.OK);
   }
 

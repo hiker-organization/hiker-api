@@ -544,9 +544,7 @@ export class ReviewService {
       autor: {
         ...review.autor,
         foto_url: review.autor.foto_url
-          ? await this.uploadAzureService.getUserImageUrl(
-              review.autor.foto_url,
-            )
+          ? await this.uploadAzureService.getUserImageUrl(review.autor.foto_url)
           : null,
       },
     };
@@ -709,7 +707,7 @@ export class ReviewService {
       data.map((review) => review.id),
       userId,
     );
-      
+
     const data_with_fotos = await Promise.all(
       data.map(async (review) => ({
         ...review,
