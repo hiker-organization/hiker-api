@@ -1,10 +1,16 @@
 import 'dotenv/config'
 import { PrismaPg } from '@prisma/adapter-pg'
+import { BlobServiceClient } from '@azure/storage-blob'
 import { PrismaClient } from '../generated/prisma/client.js'
 import bcrypt from 'bcryptjs'
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL as string })
 const prisma = new PrismaClient({ adapter })
+
+const SEED_EMAIL_DOMAIN = '@hiker.seed'
+const SEED_PASSWORD = 'Seed@12345'
+const TOTAL_REVIEWS = 50
+const REVIEW_PHOTO_POOL = 12
 
 const locais = [
   { id: 'ChIJN1t_tDeuEmsRUsoyG83frY4', nome: 'Pico do Jaraguá' },
@@ -47,81 +53,200 @@ const descricoes = [
   'Temperatura bem mais fria no alto da serra. Levar agasalho sempre.',
 ]
 
+const tags = [
+  'iniciante',
+  'moderada',
+  'dificil',
+  'cachoeira',
+  'mirante',
+  'camping',
+  'familia',
+  'pet friendly',
+  'nascer do sol',
+  'fotografia',
+]
+
+// nome_usuario follows the API convention: stored with '@' prefix, max 20 chars after it.
+// avatar: pravatar image id, or null to keep the default avatar.
 const seedUsers = [
   {
-    nome_usuario: 'seed_ana_trilheira',
+    nome_usuario: '@seed_ana_trilheira',
     nome_exibicao: 'Ana Trilheira',
-    email: 'seed_ana@hiker.seed',
+    email: `seed_ana${SEED_EMAIL_DOMAIN}`,
     data_nascimento: new Date('1995-03-15'),
     numero_celular: '11999991111',
+    avatar: 47,
   },
   {
-    nome_usuario: 'seed_carlos_aventura',
+    nome_usuario: '@seed_carlos_aventura',
     nome_exibicao: 'Carlos Aventura',
-    email: 'seed_carlos@hiker.seed',
+    email: `seed_carlos${SEED_EMAIL_DOMAIN}`,
     data_nascimento: new Date('1990-07-22'),
     numero_celular: '11999992222',
+    avatar: 12,
   },
   {
-    nome_usuario: 'seed_mariana_natureza',
+    nome_usuario: '@seed_mari_natureza',
     nome_exibicao: 'Mariana Natureza',
-    email: 'seed_mariana@hiker.seed',
+    email: `seed_mariana${SEED_EMAIL_DOMAIN}`,
     data_nascimento: new Date('1998-11-08'),
     numero_celular: '11999993333',
+    avatar: 32,
   },
   {
-    nome_usuario: 'seed_pedro_montanha',
+    nome_usuario: '@seed_pedro_montanha',
     nome_exibicao: 'Pedro Montanha',
-    email: 'seed_pedro@hiker.seed',
+    email: `seed_pedro${SEED_EMAIL_DOMAIN}`,
     data_nascimento: new Date('1987-05-30'),
     numero_celular: '11999994444',
+    avatar: 59,
   },
   {
-    nome_usuario: 'seed_julia_sertao',
+    nome_usuario: '@seed_julia_sertao',
     nome_exibicao: 'Julia Sertão',
-    email: 'seed_julia@hiker.seed',
+    email: `seed_julia${SEED_EMAIL_DOMAIN}`,
     data_nascimento: new Date('2000-01-17'),
     numero_celular: '11999995555',
+    avatar: null,
   },
 ]
 
-async function main() {
-  console.log('Iniciando seed de reviews...')
+function createBlobUploader() {
+  const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING
+  const reviewsContainer = process.env.AZURE_STORAGE_CONTAINER_REVIEWS
+  const usersContainer = process.env.AZURE_STORAGE_CONTAINER_USERS
 
-  const senhaHash = await bcrypt.hash('Seed@12345', 10)
+  if (!connectionString || !reviewsContainer || !usersContainer) {
+    console.warn('Azure Storage não configurado: seed seguirá sem imagens.')
+    return null
+  }
+
+  const service = BlobServiceClient.fromConnectionString(connectionString)
+
+  // Returns the blob name (what the API stores in the database), or null if it fails.
+  return async (container: 'reviews' | 'users', blobName: string, sourceUrl: string) => {
+    try {
+      const response = await fetch(sourceUrl)
+      if (!response.ok) throw new Error(`HTTP ${response.status} ao baixar ${sourceUrl}`)
+      const buffer = Buffer.from(await response.arrayBuffer())
+
+      const containerName = container === 'reviews' ? reviewsContainer : usersContainer
+      await service
+        .getContainerClient(containerName)
+        .getBlockBlobClient(blobName)
+        .uploadData(buffer, { blobHTTPHeaders: { blobContentType: 'image/jpeg' } })
+
+      return blobName
+    } catch (error) {
+      console.warn(`Falha ao enviar imagem ${blobName}:`, (error as Error).message)
+      return null
+    }
+  }
+}
+
+async function main() {
+  console.log('Iniciando seed...')
+
+  const upload = createBlobUploader()
+  const senhaHash = await bcrypt.hash(SEED_PASSWORD, 10)
+
+  const reviewPhotos: string[] = []
+  if (upload) {
+    for (let i = 1; i <= REVIEW_PHOTO_POOL; i++) {
+      const name = `seed-review-${String(i).padStart(2, '0')}.jpg`
+      const blob = await upload('reviews', name, `https://picsum.photos/seed/hiker-${i}/800/600`)
+      if (blob) reviewPhotos.push(blob)
+    }
+    console.log(`${reviewPhotos.length} fotos de review enviadas ao Azure.`)
+  }
 
   const usuarios = await Promise.all(
-    seedUsers.map((u) =>
-      prisma.usuario.upsert({
-        where: { email: u.email },
-        update: {},
-        create: { ...u, senha: senhaHash },
-      }),
+    seedUsers.map(async ({ avatar, ...user }) => {
+      let foto_url: string | null = null
+      if (upload && avatar !== null) {
+        const slug = user.email.split('@')[0]
+        foto_url = await upload('users', `${slug}.jpg`, `https://i.pravatar.cc/400?img=${avatar}`)
+      }
+
+      // update also migrates seed users created by older versions of this script.
+      const data = { ...user, foto_url, senha: senhaHash, deletedAt: null }
+      return prisma.usuario.upsert({
+        where: { email: user.email },
+        update: data,
+        create: data,
+      })
+    }),
+  )
+  console.log(`${usuarios.length} usuários seed garantidos.`)
+
+  // Makes the script safe to re-run: votes, photos and tag links cascade with the review.
+  const removidas = await prisma.review.deleteMany({
+    where: { autor: { email: { endsWith: SEED_EMAIL_DOMAIN } } },
+  })
+  if (removidas.count > 0) console.log(`${removidas.count} reviews seed antigas removidas.`)
+
+  const tagRecords = await Promise.all(
+    tags.map((descritivo) =>
+      prisma.tag.upsert({ where: { descritivo }, update: {}, create: { descritivo } }),
     ),
   )
 
-  console.log(`${usuarios.length} usuários seed garantidos.`)
-
-  for (let i = 0; i < 50; i++) {
-    const usuario = usuarios[i % usuarios.length]
+  for (let i = 0; i < TOTAL_REVIEWS; i++) {
+    const autorIndex = i % usuarios.length
+    const autor = usuarios[autorIndex]
     const local = locais[i % locais.length]
-    const descricao = descricoes[i % descricoes.length]
-    const nota = (i % 5) + 1
+
+    // Each other seed user votes deterministically: 3/5 like, 1/5 dislike, 1/5 no vote.
+    const votos = usuarios
+      .filter((_, j) => j !== autorIndex)
+      .map((votante, j) => {
+        const roll = (i * 7 + j * 3) % 5
+        const tipo = roll < 3 ? ('LIKE' as const) : roll === 3 ? ('DISLIKE' as const) : null
+        return { votante, tipo }
+      })
+      .filter((v) => v.tipo !== null)
+
+    const qntFotos = reviewPhotos.length > 0 ? i % 4 : 0
+    const fotos = Array.from({ length: qntFotos }, (_, k) => reviewPhotos[(i + k) % reviewPhotos.length])
+
+    const qntTags = i % 4
+    const reviewTags = Array.from({ length: qntTags }, (_, k) => tagRecords[(i * 3 + k) % tagRecords.length])
 
     await prisma.review.create({
       data: {
-        id_usuario: usuario.id,
+        id_usuario: autor.id,
         id_local: local.id,
         local: local.nome,
-        nota,
-        descricao,
-        qnt_likes: Math.floor(Math.random() * 40),
-        qnt_dislikes: Math.floor(Math.random() * 8),
+        nota: (i % 5) + 1,
+        descricao: descricoes[i % descricoes.length],
+        createdAt: new Date(Date.now() - (TOTAL_REVIEWS - i) * 3 * 60 * 60 * 1000),
+        qnt_likes: votos.filter((v) => v.tipo === 'LIKE').length,
+        qnt_dislikes: votos.filter((v) => v.tipo === 'DISLIKE').length,
+        interacoes: {
+          create: votos.map((v) => ({ id_usuario: v.votante.id, tipo: v.tipo! })),
+        },
+        fotos: { create: fotos.map((url) => ({ url })) },
+        tags: { create: reviewTags.map((tag) => ({ id_tag: tag.id })) },
       },
     })
   }
+  console.log(`${TOTAL_REVIEWS} reviews criadas com votos, tags e fotos.`)
 
-  console.log('Seed concluído: 50 reviews criados.')
+  // Same formula as ReviewService.calc_reputation.
+  for (const usuario of usuarios) {
+    const reviews = await prisma.review.findMany({
+      where: { id_usuario: usuario.id },
+      select: { qnt_likes: true, qnt_dislikes: true },
+    })
+    const likes = reviews.reduce((sum, r) => sum + r.qnt_likes, 0)
+    const dislikes = reviews.reduce((sum, r) => sum + r.qnt_dislikes, 0)
+    const reputacao = likes > 0 ? Math.max(0, ((likes - dislikes) / likes) * 10) : 0
+
+    await prisma.usuario.update({ where: { id: usuario.id }, data: { reputacao } })
+  }
+  console.log('Reputação dos usuários recalculada.')
+
+  console.log(`Seed concluído. Login: qualquer email ${SEED_EMAIL_DOMAIN} com a senha ${SEED_PASSWORD}`)
 }
 
 main()
