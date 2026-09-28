@@ -16,6 +16,7 @@ import {
 } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { AdminModule } from '../admin/admin.module.js';
+import { LocalModule } from '../local/local.module.js';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { AdminModule } from '../admin/admin.module.js';
     AuthModule,
     ReviewModule,
     AdminModule,
+    LocalModule,
     ThrottlerModule,
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', '..', '..', 'imgs'),
