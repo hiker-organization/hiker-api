@@ -36,7 +36,7 @@ export class UserController {
     @UploadedFile(
       new ParseFilePipeBuilder()
         .addFileTypeValidator({
-          fileType: /jpeg|jpg|png/g,
+          fileType: /jpeg|jpg|png/,
           errorMessage: 'imagem precisa estar em jpeg ou jpg ou png.',
         })
         .addMaxSizeValidator({
@@ -63,7 +63,7 @@ export class UserController {
     @UploadedFile(
       new ParseFilePipeBuilder()
         .addFileTypeValidator({
-          fileType: /jpeg|jpg|png/g,
+          fileType: /jpeg|jpg|png/,
           errorMessage: 'imagem precisa estar em jpeg ou jpg ou png.',
         })
         .addMaxSizeValidator({
