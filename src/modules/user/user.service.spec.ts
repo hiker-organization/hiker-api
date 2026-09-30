@@ -4,6 +4,7 @@ import { UserService } from './user.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { HashingService } from '../../common/services/hash.service.js';
 import { UploadAzureService } from '../../common/services/upload.azure.service.js';
+import { EmailService } from '../../common/services/email.service.js';
 import { PrismaServiceMock } from './mocks/prismaService.mock.js';
 import { HashServiceMock } from './mocks/hashService.mock.js';
 import { UploadAzureServiceMock } from '../review/mocks/uploadAzureService.mock.js';
@@ -25,6 +26,7 @@ describe('userService', () => {
         { provide: PrismaService, useValue: PrismaServiceMock() },
         { provide: HashingService, useValue: HashServiceMock() },
         { provide: UploadAzureService, useValue: UploadAzureServiceMock() },
+        { provide: EmailService, useValue: { sendEmailChangeEmail: jest.fn() } },
       ],
     }).compile();
 

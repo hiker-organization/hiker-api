@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   HttpStatus,
   Injectable,
@@ -15,6 +16,10 @@ import { UpdateUserDTO } from './dtos/updateUser.dto.js';
 import { message_response } from '../../common/helpers/message-response.helper.js';
 import { UpdatePasswordDTO } from './dtos/updatePassword.dto.js';
 import { GetReviewsQueryDTO } from '../review/dtos/get-reviews-query.dto.js';
+import { EmailService } from '../../common/services/email.service.js';
+import { RequestEmailChangeDTO } from './dtos/requestEmailChange.dto.js';
+import { ConfirmEmailChangeDTO } from './dtos/confirmEmailChange.dto.js';
+import { randomInt } from 'node:crypto';
 
 @Injectable()
 export class UserService {
@@ -22,6 +27,7 @@ export class UserService {
     private prisma: PrismaService,
     private readonly hashService: HashingService,
     private readonly uploadAzureService: UploadAzureService,
+    private readonly emailService: EmailService,
   ) {}
 
   async create_user(data: CreateUserDTO, foto?: Express.Multer.File) {
@@ -170,6 +176,14 @@ export class UserService {
 
     data.nome_usuario = data.nome_usuario ? `@${data.nome_usuario}` : undefined;
 
+    if (data.nome_usuario && data.nome_usuario !== user.nome_usuario) {
+      await this.nick_empty_or_fail(data.nome_usuario);
+    }
+
+    if (data.numero_celular && data.numero_celular !== user.numero_celular) {
+      await this.numero_is_equal_fail(data.numero_celular);
+    }
+
     if (foto) {
       data.foto_url = await this.uploadAzureService.addImageUser(
         foto.buffer,
@@ -187,7 +201,10 @@ export class UserService {
         ...data,
       },
       select: {
+        nome_usuario: true,
         nome_exibicao: true,
+        data_nascimento: true,
+        numero_celular: true,
         foto_url: true,
       },
     });
@@ -200,6 +217,70 @@ export class UserService {
           ? await this.uploadAzureService.getUserImageUrl(updatedUser.foto_url)
           : null,
       },
+      200,
+    );
+  }
+
+  // RN17.6: the new e-mail is only applied after the code sent to the current e-mail is confirmed.
+  async request_email_change(data: RequestEmailChangeDTO, token: PayloadDTO) {
+    const user = await this.find_user_or_fail(token.sub);
+
+    if (data.email === user.email)
+      throw new BadRequestException('O novo e-mail é igual ao atual.');
+
+    await this.email_empty_or_fail(data.email);
+
+    const code = randomInt(100000, 1000000).toString();
+    const expiresAt = new Date(Date.now() + 1000 * 60 * 15);
+
+    await this.prisma.$transaction([
+      this.prisma.token_alteracao_email.deleteMany({
+        where: { id_usuario: user.id },
+      }),
+      this.prisma.token_alteracao_email.create({
+        data: {
+          token: code,
+          novo_email: data.email,
+          expira_em: expiresAt,
+          id_usuario: user.id,
+        },
+      }),
+    ]);
+
+    await this.emailService.sendEmailChangeEmail(user.email, code, data.email);
+
+    return message_response(
+      'Enviamos um código de verificação para o seu e-mail atual.',
+      200,
+    );
+  }
+
+  async confirm_email_change(data: ConfirmEmailChangeDTO, token: PayloadDTO) {
+    const user = await this.find_user_or_fail(token.sub);
+
+    const emailToken = await this.prisma.token_alteracao_email.findFirst({
+      where: { token: data.token, id_usuario: user.id },
+    });
+
+    if (!emailToken || emailToken.expira_em < new Date())
+      throw new BadRequestException('Código inválido ou expirado.');
+
+    // The e-mail may have been taken between the request and the confirmation.
+    await this.email_empty_or_fail(emailToken.novo_email);
+
+    await this.prisma.$transaction([
+      this.prisma.usuario.update({
+        where: { id: user.id },
+        data: { email: emailToken.novo_email },
+      }),
+      this.prisma.token_alteracao_email.deleteMany({
+        where: { id_usuario: user.id },
+      }),
+    ]);
+
+    return create_response(
+      'E-mail alterado com sucesso.',
+      { email: emailToken.novo_email },
       200,
     );
   }
@@ -262,6 +343,9 @@ export class UserService {
         foto_url: true,
         nome_exibicao: true,
         nome_usuario: true,
+        email: true,
+        data_nascimento: true,
+        numero_celular: true,
         reputacao: true,
         reviews: {
           where: { deletedAt: null },
