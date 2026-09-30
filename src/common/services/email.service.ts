@@ -55,4 +55,25 @@ export class EmailService {
       `,
     });
   }
+
+  async sendEmailChangeEmail(
+    to: string,
+    token: string,
+    novoEmail: string,
+  ): Promise<void> {
+    await this.sendMail({
+      to,
+      subject: 'Alteração de e-mail',
+      text: `Você solicitou a alteração do seu e-mail para ${novoEmail}.`,
+      html: `
+        <div style="font-family: Arial, sans-serif; line-height: 1.5">
+          <h2>Alteração de e-mail</h2>
+          <p>Você solicitou a alteração do e-mail da sua conta para <b>${novoEmail}</b>.</p>
+          <p>Digite o código abaixo no aplicativo para confirmar</p>
+          <p style="font-size: 24px; text-align: center">${token}</p>
+          <p>Se você não solicitou isso, ignore este email.</p>
+        </div>
+      `,
+    });
+  }
 }

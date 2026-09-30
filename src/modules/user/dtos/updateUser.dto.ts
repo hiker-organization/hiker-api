@@ -1,5 +1,6 @@
+import { Transform } from 'class-transformer';
 import {
-  IsEmail,
+  IsDate,
   IsMobilePhone,
   IsOptional,
   IsString,
@@ -25,9 +26,21 @@ export class UpdateUserDTO {
   @MaxLength(30, { message: 'Limite de 30 caractétes.' })
   public nome_exibicao?: string;
 
+  // E-mail is changed through /user/change-email, which requires a verification code (RN17.6).
+
   @IsOptional()
-  @IsEmail({}, { message: 'Por favor, insira um email corretamente.' })
-  public email?: string;
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      const date = new Date(value);
+      if (isNaN(date.getTime())) {
+        throw new Error('data inválida');
+      }
+      return date;
+    }
+    return value;
+  })
+  @IsDate({ message: 'Data inválida' })
+  public data_nascimento?: Date;
 
   @IsOptional()
   @IsMobilePhone('pt-BR', {}, { message: 'Insira corretamente seu número.' })

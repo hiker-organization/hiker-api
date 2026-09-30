@@ -33,6 +33,7 @@ describe('ReviewService', () => {
       const review_data = ReviewMock;
       const token = {
         email: 'user@example.com',
+        cargo: 'USER',
         iat: 1234567890,
         exp: 1234567890,
         aud: 'audience',
@@ -55,6 +56,14 @@ describe('ReviewService', () => {
       jest
         .spyOn(prismaService.review, 'create')
         .mockResolvedValue(mock_review_created as any);
+
+      jest
+        .spyOn(prismaService.usuario, 'findUnique')
+        .mockResolvedValue({ banido: false, bloqueado: false } as any);
+
+      jest
+        .spyOn(prismaService, '$transaction')
+        .mockImplementation((callback: any) => callback(prismaService));
 
       jest.spyOn(prismaService.tag, 'findUnique').mockResolvedValue(null);
       jest

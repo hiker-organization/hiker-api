@@ -21,6 +21,8 @@ import { PayloadDTO } from '../auth/dto/payload.dto.js';
 import { AuthToken } from '../auth/guard/auth.guard.js';
 import { UpdateUserDTO } from './dtos/updateUser.dto.js';
 import { UpdatePasswordDTO } from './dtos/updatePassword.dto.js';
+import { RequestEmailChangeDTO } from './dtos/requestEmailChange.dto.js';
+import { ConfirmEmailChangeDTO } from './dtos/confirmEmailChange.dto.js';
 import { SkipThrottle } from '@nestjs/throttler';
 import { GetReviewsQueryDTO } from '../review/dtos/get-reviews-query.dto.js';
 
@@ -108,6 +110,24 @@ export class UserController {
     @TokenPayloadParam() token: PayloadDTO,
   ) {
     return this.service.update_password(data, token);
+  }
+
+  @UseGuards(AuthToken)
+  @Post('change-email')
+  request_email_change(
+    @Body() data: RequestEmailChangeDTO,
+    @TokenPayloadParam() token: PayloadDTO,
+  ) {
+    return this.service.request_email_change(data, token);
+  }
+
+  @UseGuards(AuthToken)
+  @Post('change-email/confirm')
+  confirm_email_change(
+    @Body() data: ConfirmEmailChangeDTO,
+    @TokenPayloadParam() token: PayloadDTO,
+  ) {
+    return this.service.confirm_email_change(data, token);
   }
 
   @UseGuards(AuthToken)
