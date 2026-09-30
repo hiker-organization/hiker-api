@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   HttpStatus,
   Injectable,
@@ -7,23 +8,26 @@ import {
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateUserDTO } from './dtos/createUser.dto.js';
 import { create_response } from '../../common/helpers/create-response.helper.js';
-import { FileService } from '../../common/services/file.service.js';
-import path from 'node:path';
-import { mkdir } from 'node:fs/promises';
+import { UploadAzureService } from '../../common/services/upload.azure.service.js';
 import { HashingService } from '../../common/services/hash.service.js';
-import { getRandomValues, randomUUID } from 'node:crypto';
 import { PayloadDTO } from '../auth/dto/payload.dto.js';
 import { get_response } from '../../common/helpers/get-response.helper.js';
 import { UpdateUserDTO } from './dtos/updateUser.dto.js';
 import { message_response } from '../../common/helpers/message-response.helper.js';
 import { UpdatePasswordDTO } from './dtos/updatePassword.dto.js';
+import { GetReviewsQueryDTO } from '../review/dtos/get-reviews-query.dto.js';
+import { EmailService } from '../../common/services/email.service.js';
+import { RequestEmailChangeDTO } from './dtos/requestEmailChange.dto.js';
+import { ConfirmEmailChangeDTO } from './dtos/confirmEmailChange.dto.js';
+import { randomInt } from 'node:crypto';
 
 @Injectable()
 export class UserService {
   constructor(
     private prisma: PrismaService,
     private readonly hashService: HashingService,
-    private readonly fileService: FileService,
+    private readonly uploadAzureService: UploadAzureService,
+    private readonly emailService: EmailService,
   ) {}
 
   async create_user(data: CreateUserDTO, foto?: Express.Multer.File) {
@@ -38,20 +42,10 @@ export class UserService {
     await this.nick_empty_or_fail(nick);
 
     if (foto) {
-      const extName = path
-        .extname(foto?.originalname)
-        .toLowerCase()
-        .substring(1);
-
-      const fileName = `${randomUUID()}.${extName}`;
-
-      const pathMaster = path.resolve(process.cwd(), 'imgs/user', fileName);
-      const dirPath = path.dirname(pathMaster);
-
-      await mkdir(dirPath, { recursive: true });
-      await this.fileService.writeFile(pathMaster, foto.buffer);
-
-      data.foto_url = fileName;
+      data.foto_url = await this.uploadAzureService.addImageUser(
+        foto.buffer,
+        foto.originalname,
+      );
     }
 
     const user = await this.prisma.usuario.create({
@@ -83,21 +77,94 @@ export class UserService {
         nome_exibicao: `Usuário desativado`,
         nome_usuario: suffix,
         numero_celular: suffix,
-        data_nascimento: suffix,
       },
     });
 
     return message_response('Conta desativada com sucesso.', 200);
   }
 
-  async get_user(nick: string) {
-    const user = await this.get_user_with_nick(nick);
+  async get_user(nick: string, token: PayloadDTO) {
+    const user = await this.get_user_with_nick(nick, token.sub);
     return get_response('Perfil do usuário abaixo', user, 200);
   }
 
   async get_me(token: PayloadDTO) {
     const user = await this.get_user_with_full_data(token.sub);
     return get_response('Seu perfil abaixo', user, 200);
+  }
+
+  async favorites(token: PayloadDTO, query: GetReviewsQueryDTO) {
+    const limit = query.limit ?? 20;
+    const reviews = await this.prisma.review_favorita.findMany({
+      take: limit + 1,
+      skip: query.cursor ? 1 : 0,
+      ...(query.cursor && {
+        cursor: { id: query.cursor },
+      }),
+      where: { review: { deletedAt: null, id_usuario: token.sub } },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        review: {
+          select: {
+            id: true,
+            id_local: true,
+            local: true,
+            descricao: true,
+            nota: true,
+            createdAt: true,
+            qnt_likes: true,
+            qnt_dislikes: true,
+            qnt_favoritos: true,
+            fotos: { select: { url: true } },
+            oculto: true,
+            autor: {
+              select: {
+                nome_exibicao: true,
+                foto_url: true,
+                reputacao: true,
+                nome_usuario: true,
+              },
+            },
+            tags: { select: { tag: { select: { descritivo: true } } } },
+          },
+        },
+      },
+    });
+
+    if (reviews.length === 0)
+      throw new NotFoundException('Nehuma review favoritada para mostrar.');
+
+    const hasNextPage = reviews.length > limit;
+    const data = hasNextPage ? reviews.slice(0, limit) : reviews;
+    const nextCursor = hasNextPage ? data[data.length - 1].review.id : null;
+
+    const favoriteIds = await this.favorited_reviews(
+      reviews.map((review) => review.review.id),
+      token.sub,
+    );
+    const reactions = await this.get_user_reactions_for_reviews(
+      data.map((review) => review.review.id),
+      token.sub,
+    );
+
+    return {
+      data: data.map((review) => ({
+        ...review,
+        liked: reactions.get(review.review.id) === 'LIKE',
+        disliked: reactions.get(review.review.id) === 'DISLIKE',
+        favorited: favoriteIds.has(review.review.id),
+        fotos: review.review.fotos.map((foto) => ({
+          url: `${process.env.API_STATIC_REVIEWS}${foto.url}`,
+        })),
+        autor: {
+          ...review.review.autor,
+          foto_url: review.review.autor.foto_url
+            ? `${process.env.API_STATIC_USER}${review.review.autor.foto_url}`
+            : null,
+        },
+      })),
+      nextCursor,
+    };
   }
 
   async update_user(
@@ -109,38 +176,113 @@ export class UserService {
 
     data.nome_usuario = data.nome_usuario ? `@${data.nome_usuario}` : undefined;
 
-    if (foto) {
-      const extName = path
-        .extname(foto?.originalname)
-        .toLowerCase()
-        .substring(1);
-
-      if (user.foto_url) {
-        const oldUrl = user.foto_url;
-        const pathUrl = path.resolve(process.cwd(), 'imgs/user', oldUrl);
-        await this.fileService.deleteFile(pathUrl);
-      }
-
-      const fileName = `${randomUUID()}.${extName}`;
-
-      const pathMaster = path.resolve(process.cwd(), 'imgs/user', fileName);
-      const dirPath = path.dirname(pathMaster);
-
-      await mkdir(dirPath, { recursive: true });
-
-      await this.fileService.writeFile(pathMaster, foto.buffer);
-
-      data.foto_url = fileName;
+    if (data.nome_usuario && data.nome_usuario !== user.nome_usuario) {
+      await this.nick_empty_or_fail(data.nome_usuario);
     }
 
-    await this.prisma.usuario.update({
+    if (data.numero_celular && data.numero_celular !== user.numero_celular) {
+      await this.numero_is_equal_fail(data.numero_celular);
+    }
+
+    if (foto) {
+      data.foto_url = await this.uploadAzureService.addImageUser(
+        foto.buffer,
+        foto.originalname,
+      );
+
+      if (user.foto_url) {
+        await this.uploadAzureService.deleteUserImage(user.foto_url);
+      }
+    }
+
+    const updatedUser = await this.prisma.usuario.update({
       where: { id: user.id },
       data: {
         ...data,
       },
+      select: {
+        nome_usuario: true,
+        nome_exibicao: true,
+        data_nascimento: true,
+        numero_celular: true,
+        foto_url: true,
+      },
     });
 
-    return message_response('Alterado com sucesso.', 200);
+    return create_response(
+      'Alterado com sucesso.',
+      {
+        ...updatedUser,
+        foto_url: updatedUser.foto_url
+          ? await this.uploadAzureService.getUserImageUrl(updatedUser.foto_url)
+          : null,
+      },
+      200,
+    );
+  }
+
+  // RN17.6: the new e-mail is only applied after the code sent to the current e-mail is confirmed.
+  async request_email_change(data: RequestEmailChangeDTO, token: PayloadDTO) {
+    const user = await this.find_user_or_fail(token.sub);
+
+    if (data.email === user.email)
+      throw new BadRequestException('O novo e-mail é igual ao atual.');
+
+    await this.email_empty_or_fail(data.email);
+
+    const code = randomInt(100000, 1000000).toString();
+    const expiresAt = new Date(Date.now() + 1000 * 60 * 15);
+
+    await this.prisma.$transaction([
+      this.prisma.token_alteracao_email.deleteMany({
+        where: { id_usuario: user.id },
+      }),
+      this.prisma.token_alteracao_email.create({
+        data: {
+          token: code,
+          novo_email: data.email,
+          expira_em: expiresAt,
+          id_usuario: user.id,
+        },
+      }),
+    ]);
+
+    await this.emailService.sendEmailChangeEmail(user.email, code, data.email);
+
+    return message_response(
+      'Enviamos um código de verificação para o seu e-mail atual.',
+      200,
+    );
+  }
+
+  async confirm_email_change(data: ConfirmEmailChangeDTO, token: PayloadDTO) {
+    const user = await this.find_user_or_fail(token.sub);
+
+    const emailToken = await this.prisma.token_alteracao_email.findFirst({
+      where: { token: data.token, id_usuario: user.id },
+    });
+
+    if (!emailToken || emailToken.expira_em < new Date())
+      throw new BadRequestException('Código inválido ou expirado.');
+
+    // The e-mail may have been taken between the request and the confirmation.
+    await this.email_empty_or_fail(emailToken.novo_email);
+
+    await this.prisma.$transaction([
+      this.prisma.usuario.update({
+        where: { id: user.id },
+        data: { email: emailToken.novo_email },
+      }),
+      this.prisma.token_alteracao_email.deleteMany({
+        where: { id_usuario: user.id },
+      }),
+    ]);
+
+    return create_response(
+      'E-mail alterado com sucesso.',
+      { email: emailToken.novo_email },
+      200,
+    );
   }
 
   async update_password(data: UpdatePasswordDTO, token: PayloadDTO) {
@@ -169,7 +311,7 @@ export class UserService {
   }
   private async email_empty_or_fail(email: string): Promise<boolean> {
     const user = await this.prisma.usuario.findFirst({
-      where: { email, deletedAt: null },
+      where: { email: email, deletedAt: null },
     });
 
     if (user) throw new ConflictException('Email já existente.');
@@ -201,8 +343,12 @@ export class UserService {
         foto_url: true,
         nome_exibicao: true,
         nome_usuario: true,
+        email: true,
+        data_nascimento: true,
+        numero_celular: true,
         reputacao: true,
         reviews: {
+          where: { deletedAt: null },
           select: {
             id: true,
             oculto: true,
@@ -210,6 +356,7 @@ export class UserService {
             local: true,
             nota: true,
             descricao: true,
+            tags: { select: { tag: { select: { descritivo: true } } } },
             qnt_dislikes: true,
             qnt_likes: true,
             createdAt: true,
@@ -220,21 +367,26 @@ export class UserService {
 
     if (!user) throw new NotFoundException('Usuário não encontrado.');
 
+    const reviews = await Promise.all(
+      user.reviews.map(async (review) => ({
+        ...review,
+        fotos: await Promise.all(
+          review.fotos.map(async (foto) => ({
+            url: await this.uploadAzureService.getReviewImageUrl(foto.url),
+          })),
+        ),
+      })),
+    );
+
     return {
       ...user,
       foto_url: user.foto_url
-        ? `${process.env.API_STATIC_USER}${user.foto_url}`
+        ? await this.uploadAzureService.getUserImageUrl(user.foto_url)
         : null,
-      reviews: user.reviews.map((review) => ({
-        ...review,
-        fotos: review.fotos.map((foto) => ({
-          ...foto,
-          url: `${process.env.API_STATIC_REVIEWS}${foto.url}`,
-        })),
-      })),
+      reviews,
     };
   }
-  private async get_user_with_nick(nick: string) {
+  private async get_user_with_nick(nick: string, viewerId: number) {
     const user = await this.prisma.usuario.findFirst({
       where: { nome_usuario: nick, deletedAt: null },
       select: {
@@ -243,13 +395,14 @@ export class UserService {
         nome_usuario: true,
         reputacao: true,
         reviews: {
-          where: { oculto: false },
+          where: { oculto: false, deletedAt: null },
           select: {
             id: true,
             fotos: { select: { url: true } },
             local: true,
             nota: true,
             descricao: true,
+            tags: { select: { tag: { select: { descritivo: true } } } },
             qnt_dislikes: true,
             qnt_likes: true,
             createdAt: true,
@@ -260,18 +413,86 @@ export class UserService {
 
     if (!user) throw new NotFoundException('Usuário não encontrado.');
 
+    const reactionMap = await this.get_user_reactions_for_reviews(
+      user.reviews.map((review) => review.id),
+      viewerId,
+    );
+
+    const favoriteIds = await this.favorited_reviews(
+      user.reviews.map((review) => review.id),
+      viewerId,
+    );
+
+    const reviews = await Promise.all(
+      user.reviews.map(async (review) => ({
+        ...review,
+        liked: reactionMap.get(review.id) === 'LIKE',
+        disliked: reactionMap.get(review.id) === 'DISLIKE',
+        favorited: favoriteIds.has(review.id),
+        fotos: await Promise.all(
+          review.fotos.map(async (foto) => ({
+            url: await this.uploadAzureService.getReviewImageUrl(foto.url),
+          })),
+        ),
+      })),
+    );
+
     return {
       ...user,
       foto_url: user.foto_url
-        ? `${process.env.API_STATIC_USER}${user.foto_url}`
+        ? await this.uploadAzureService.getUserImageUrl(user.foto_url)
         : null,
-      reviews: user.reviews.map((review) => ({
-        ...review,
-        fotos: review.fotos.map((foto) => ({
-          ...foto,
-          url: `${process.env.API_STATIC_REVIEWS}${foto.url}`,
-        })),
-      })),
+      reviews,
     };
+  }
+  private async get_user_reactions_for_reviews(
+    reviewIds: number[],
+    userId: number,
+  ) {
+    const reactionMap = new Map<number, string>();
+
+    if (reviewIds.length === 0) {
+      return reactionMap;
+    }
+
+    const reactions = await this.prisma.voto_review.findMany({
+      where: {
+        id_usuario: userId,
+        id_review: {
+          in: reviewIds,
+        },
+      },
+      select: {
+        id_review: true,
+        tipo: true,
+      },
+    });
+
+    reactions.forEach((reaction) => {
+      reactionMap.set(reaction.id_review, reaction.tipo);
+    });
+
+    return reactionMap;
+  }
+  private async favorited_reviews(reviewsId: number[], userId: number) {
+    if (reviewsId.length === 0) return new Set<number>();
+
+    const favorites = await this.prisma.review_favorita.findMany({
+      where: {
+        id_usuario: userId,
+        id_review: {
+          in: reviewsId,
+        },
+      },
+      select: {
+        id_review: true,
+      },
+    });
+
+    const favoriteIds = new Set(
+      favorites.map((favorite) => favorite.id_review),
+    );
+
+    return favoriteIds;
   }
 }

@@ -14,7 +14,7 @@
     "sourceMap": true,
     "outDir": "./dist",
     "incremental": true,
-    "types": ["node","jest", "express", "multer"],
+    "types": ["node", "jest", "express", "multer"],
     "skipLibCheck": true,
     "strictNullChecks": true,
     "forceConsistentCasingInFileNames": true,
@@ -22,6 +22,6 @@
     "strictBindCallApply": false,
     "noFallthroughCasesInSwitch": false
   },
-  "include": ["src/**/*", "test/**/*"],
+  "include": ["src/**/*"],
   "exclude": ["node_modules"]
 }

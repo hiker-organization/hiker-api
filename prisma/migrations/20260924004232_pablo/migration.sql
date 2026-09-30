@@ -16,6 +16,9 @@ CREATE TABLE "Usuario" (
     "foto_url" TEXT,
     "reputacao" DOUBLE PRECISION NOT NULL DEFAULT 0,
     "cargo" "Role" NOT NULL DEFAULT 'USER',
+    "banido" BOOLEAN NOT NULL DEFAULT false,
+    "bloqueado" BOOLEAN NOT NULL DEFAULT false,
+    "bloqueado_ate" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "deletedAt" TIMESTAMP(3),
@@ -32,11 +35,13 @@ CREATE TABLE "Review" (
     "qnt_likes" INTEGER NOT NULL DEFAULT 0,
     "qnt_dislikes" INTEGER NOT NULL DEFAULT 0,
     "qnt_denuncia" INTEGER NOT NULL DEFAULT 0,
+    "qnt_favoritos" INTEGER NOT NULL DEFAULT 0,
     "oculto" BOOLEAN NOT NULL DEFAULT false,
     "nota" INTEGER NOT NULL DEFAULT 0,
     "descricao" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "deletedAt" TIMESTAMP(3),
 
     CONSTRAINT "Review_pkey" PRIMARY KEY ("id")
 );
@@ -51,6 +56,16 @@ CREATE TABLE "Voto_review" (
     "updateAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "Voto_review_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Review_favorita" (
+    "id" SERIAL NOT NULL,
+    "id_usuario" INTEGER NOT NULL,
+    "id_review" INTEGER NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Review_favorita_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -102,6 +117,16 @@ CREATE TABLE "Denuncia" (
     CONSTRAINT "Denuncia_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "Token_refresh" (
+    "id" SERIAL NOT NULL,
+    "token_hash" TEXT NOT NULL,
+    "expira_em" TIMESTAMP(3) NOT NULL,
+    "id_usuario" INTEGER NOT NULL,
+
+    CONSTRAINT "Token_refresh_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "Usuario_nome_usuario_key" ON "Usuario"("nome_usuario");
 
@@ -124,6 +149,15 @@ CREATE INDEX "Voto_review_id_review_idx" ON "Voto_review"("id_review");
 CREATE UNIQUE INDEX "Voto_review_id_usuario_id_review_key" ON "Voto_review"("id_usuario", "id_review");
 
 -- CreateIndex
+CREATE INDEX "Review_favorita_id_usuario_idx" ON "Review_favorita"("id_usuario");
+
+-- CreateIndex
+CREATE INDEX "Review_favorita_id_review_idx" ON "Review_favorita"("id_review");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Review_favorita_id_usuario_id_review_key" ON "Review_favorita"("id_usuario", "id_review");
+
+-- CreateIndex
 CREATE INDEX "Foto_id_review_idx" ON "Foto"("id_review");
 
 -- CreateIndex
@@ -135,6 +169,12 @@ CREATE INDEX "Token_redefinicao_senha_id_usuario_idx" ON "Token_redefinicao_senh
 -- CreateIndex
 CREATE UNIQUE INDEX "Denuncia_id_usuario_id_review_key" ON "Denuncia"("id_usuario", "id_review");
 
+-- CreateIndex
+CREATE UNIQUE INDEX "Token_refresh_token_hash_key" ON "Token_refresh"("token_hash");
+
+-- CreateIndex
+CREATE INDEX "Token_refresh_id_usuario_idx" ON "Token_refresh"("id_usuario");
+
 -- AddForeignKey
 ALTER TABLE "Review" ADD CONSTRAINT "Review_id_usuario_fkey" FOREIGN KEY ("id_usuario") REFERENCES "Usuario"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
@@ -143,6 +183,12 @@ ALTER TABLE "Voto_review" ADD CONSTRAINT "Voto_review_id_usuario_fkey" FOREIGN K
 
 -- AddForeignKey
 ALTER TABLE "Voto_review" ADD CONSTRAINT "Voto_review_id_review_fkey" FOREIGN KEY ("id_review") REFERENCES "Review"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Review_favorita" ADD CONSTRAINT "Review_favorita_id_usuario_fkey" FOREIGN KEY ("id_usuario") REFERENCES "Usuario"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Review_favorita" ADD CONSTRAINT "Review_favorita_id_review_fkey" FOREIGN KEY ("id_review") REFERENCES "Review"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Foto" ADD CONSTRAINT "Foto_id_review_fkey" FOREIGN KEY ("id_review") REFERENCES "Review"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -161,3 +207,6 @@ ALTER TABLE "Denuncia" ADD CONSTRAINT "Denuncia_id_usuario_fkey" FOREIGN KEY ("i
 
 -- AddForeignKey
 ALTER TABLE "Denuncia" ADD CONSTRAINT "Denuncia_id_review_fkey" FOREIGN KEY ("id_review") REFERENCES "Review"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Token_refresh" ADD CONSTRAINT "Token_refresh_id_usuario_fkey" FOREIGN KEY ("id_usuario") REFERENCES "Usuario"("id") ON DELETE CASCADE ON UPDATE CASCADE;

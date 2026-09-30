@@ -31,7 +31,7 @@ export class EmailService {
 
   async sendMail({ to, subject, text, html }: SendEmailInput): Promise<void> {
     await this.transporter.sendMail({
-      from: process.env.SMTP_FROM ?? process.env.SMTP_USER,
+      from: `"${process.env.SMTP_FROM}" <${process.env.SMTP_USER}>`,
       to,
       subject,
       text,
@@ -49,6 +49,27 @@ export class EmailService {
           <h2>Redefinição de senha</h2>
           <p>Você solicitou a redefinição de senha da sua conta.</p>
           <p>Digite o código para redefiní-la</p>
+          <p style="font-size: 24px; text-align: center">${token}</p>
+          <p>Se você não solicitou isso, ignore este email.</p>
+        </div>
+      `,
+    });
+  }
+
+  async sendEmailChangeEmail(
+    to: string,
+    token: string,
+    novoEmail: string,
+  ): Promise<void> {
+    await this.sendMail({
+      to,
+      subject: 'Alteração de e-mail',
+      text: `Você solicitou a alteração do seu e-mail para ${novoEmail}.`,
+      html: `
+        <div style="font-family: Arial, sans-serif; line-height: 1.5">
+          <h2>Alteração de e-mail</h2>
+          <p>Você solicitou a alteração do e-mail da sua conta para <b>${novoEmail}</b>.</p>
+          <p>Digite o código abaixo no aplicativo para confirmar</p>
           <p style="font-size: 24px; text-align: center">${token}</p>
           <p>Se você não solicitou isso, ignore este email.</p>
         </div>

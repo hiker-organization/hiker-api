@@ -1,6 +1,7 @@
 generator client {
   provider = "prisma-client"
   output   = "../generated/prisma"
+  
 }
 
 datasource db {
@@ -18,13 +19,19 @@ model Usuario {
   foto_url                String?
   reputacao               Float       @default(0)
   cargo                   Role        @default(USER)
+  banido                  Boolean     @default(false)
+  bloqueado               Boolean     @default(false)
+  bloqueado_ate           DateTime?
   createdAt               DateTime    @default(now())
   updatedAt               DateTime    @updatedAt
   deletedAt               DateTime?
 
   reviews         Review[]
+  reviews_favoritas       Review_favorita[]
   denuncias       Denuncia[]
   tokens          Token_redefinicao_senha[]
+  tokens_email    Token_alteracao_email[]
+  refresh_tokens  Token_refresh[]
   interacoes      Voto_review[]
 }
 
@@ -36,18 +43,21 @@ model Review {
   qnt_likes       Int         @default(0)
   qnt_dislikes    Int         @default(0)
   qnt_denuncia    Int         @default(0)
+  qnt_favoritos   Int         @default(0)
   oculto          Boolean     @default(false)
-  nota            Int         @default(0)         
+  nota            Int         @default(0)
   descricao       String
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
-
+  deletedAt       DateTime?
+  
   autor       Usuario    @relation(fields: [id_usuario], references: [id], onDelete: Restrict, onUpdate: Cascade) 
   denuncias   Denuncia[]
   
   fotos       Foto[]
   tags        Tag_review[]
   interacoes  Voto_review[]
+  favoritas   Review_favorita[]
 
   @@index([id_usuario])
   @@index([id_local])
@@ -64,6 +74,21 @@ model Voto_review {
 
   usuario     Usuario     @relation(fields: [id_usuario], references: [id], onDelete: Cascade)
   review      Review      @relation(fields: [id_review], references: [id], onDelete: Cascade)
+
+  @@unique([id_usuario, id_review])
+  @@index([id_usuario])
+  @@index([id_review])
+}
+
+model Review_favorita {
+  id          Int         @id         @default(autoincrement())
+  id_usuario          Int
+  id_review         Int
+
+  createdAt         DateTime          @default(now())
+
+  usuario         Usuario         @relation(fields: [id_usuario], references: [id], onDelete: Cascade)
+  review          Review          @relation(fields: [id_review], references: [id], onDelete: Cascade)
 
   @@unique([id_usuario, id_review])
   @@index([id_usuario])
@@ -108,6 +133,17 @@ model Token_redefinicao_senha {
   @@index([id_usuario])
 }
 
+model Token_alteracao_email {
+  id            Int         @id             @default(autoincrement())
+  token         String
+  novo_email    String
+  expira_em     DateTime
+  usuario       Usuario     @relation(fields: [id_usuario], references: [id], onDelete: Cascade)
+  id_usuario    Int
+
+  @@index([id_usuario])
+}
+
 model Denuncia {
   id         Int        @id            @default(autoincrement())
   descricao  String
@@ -120,6 +156,16 @@ model Denuncia {
   id_review  Int
 
   @@unique([id_usuario, id_review])
+}
+
+model Token_refresh {
+  id          Int      @id @default(autoincrement())
+  token_hash  String   @unique
+  expira_em   DateTime
+  usuario     Usuario  @relation(fields: [id_usuario], references: [id], onDelete: Cascade)
+  id_usuario  Int
+
+  @@index([id_usuario])
 }
 
 enum Role {

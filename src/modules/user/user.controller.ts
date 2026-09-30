@@ -7,6 +7,7 @@ import {
   ParseFilePipeBuilder,
   Patch,
   Post,
+  Query,
   UnprocessableEntityException,
   UploadedFile,
   UseGuards,
@@ -20,7 +21,12 @@ import { PayloadDTO } from '../auth/dto/payload.dto.js';
 import { AuthToken } from '../auth/guard/auth.guard.js';
 import { UpdateUserDTO } from './dtos/updateUser.dto.js';
 import { UpdatePasswordDTO } from './dtos/updatePassword.dto.js';
+import { RequestEmailChangeDTO } from './dtos/requestEmailChange.dto.js';
+import { ConfirmEmailChangeDTO } from './dtos/confirmEmailChange.dto.js';
+import { SkipThrottle } from '@nestjs/throttler';
+import { GetReviewsQueryDTO } from '../review/dtos/get-reviews-query.dto.js';
 
+@SkipThrottle({ auth: true })
 @Controller('user')
 export class UserController {
   constructor(private readonly service: UserService) {}
@@ -32,7 +38,7 @@ export class UserController {
     @UploadedFile(
       new ParseFilePipeBuilder()
         .addFileTypeValidator({
-          fileType: /jpeg|jpg|png/g,
+          fileType: /jpeg|jpg|png/,
           errorMessage: 'imagem precisa estar em jpeg ou jpg ou png.',
         })
         .addMaxSizeValidator({
@@ -59,7 +65,7 @@ export class UserController {
     @UploadedFile(
       new ParseFilePipeBuilder()
         .addFileTypeValidator({
-          fileType: /jpeg|jpg|png/g,
+          fileType: /jpeg|jpg|png/,
           errorMessage: 'imagem precisa estar em jpeg ou jpg ou png.',
         })
         .addMaxSizeValidator({
@@ -83,6 +89,15 @@ export class UserController {
   }
 
   @UseGuards(AuthToken)
+  @Get('/me/favorites')
+  favorites_reviews(
+    @TokenPayloadParam() token: PayloadDTO,
+    @Query() query: GetReviewsQueryDTO,
+  ) {
+    return this.service.favorites(token, query);
+  }
+
+  @UseGuards(AuthToken)
   @Delete('delete-account')
   delete_user(@TokenPayloadParam() token: PayloadDTO) {
     return this.service.delete_user(token);
@@ -97,8 +112,30 @@ export class UserController {
     return this.service.update_password(data, token);
   }
 
+  @UseGuards(AuthToken)
+  @Post('change-email')
+  request_email_change(
+    @Body() data: RequestEmailChangeDTO,
+    @TokenPayloadParam() token: PayloadDTO,
+  ) {
+    return this.service.request_email_change(data, token);
+  }
+
+  @UseGuards(AuthToken)
+  @Post('change-email/confirm')
+  confirm_email_change(
+    @Body() data: ConfirmEmailChangeDTO,
+    @TokenPayloadParam() token: PayloadDTO,
+  ) {
+    return this.service.confirm_email_change(data, token);
+  }
+
+  @UseGuards(AuthToken)
   @Get(':nick')
-  get_user(@Param('nick') nick: string) {
-    return this.service.get_user(nick);
+  get_user(
+    @Param('nick') nick: string,
+    @TokenPayloadParam() token: PayloadDTO,
+  ) {
+    return this.service.get_user(nick, token);
   }
 }

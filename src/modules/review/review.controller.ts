@@ -22,12 +22,14 @@ import { PayloadDTO } from '../auth/dto/payload.dto.js';
 import { CreateReviewDTO } from './dtos/create-review.dto.js';
 import { GetReviewsQueryDTO } from './dtos/get-reviews-query.dto.js';
 import { FilesInterceptor } from '@nestjs/platform-express';
+import { SkipThrottle } from '@nestjs/throttler';
 
+@UseGuards(AuthToken)
+@SkipThrottle({ auth: true })
 @Controller('review')
 export class ReviewController {
   constructor(private readonly service: ReviewService) {}
 
-  @UseGuards(AuthToken)
   @UseInterceptors(FilesInterceptor('fotos', 5))
   @Post()
   create_review(
@@ -36,11 +38,11 @@ export class ReviewController {
     @UploadedFiles(
       new ParseFilePipeBuilder()
         .addFileTypeValidator({
-          fileType: /jpeg|jpg|png/g,
+          fileType: /jpeg|jpg|png/,
           errorMessage: 'imagem precisa estar em jpeg ou jpg ou png.',
         })
         .addMaxSizeValidator({
-          maxSize: 1 * (1024 * 1024),
+          maxSize: 10 * (1024 * 1024),
           errorMessage: 'imagem excede tamanho permitido.',
         })
         .build({
@@ -54,24 +56,55 @@ export class ReviewController {
   }
 
   @Get()
-  get_reviews(@Query() query: GetReviewsQueryDTO) {
-    return this.service.get_reviews(query);
+  get_reviews(
+    @Query() query: GetReviewsQueryDTO,
+    @TokenPayloadParam() token: PayloadDTO,
+  ) {
+    return this.service.get_reviews(query, token);
   }
 
-  @Get('/search/:local')
-  get_per_local(
-    @Param('local') local: string,
-    @Query() query: GetReviewsQueryDTO,
+  @Post('/favorite/:id')
+  fav_review(
+    @Param('id', ParseIntPipe) id: number,
+    @TokenPayloadParam() token: PayloadDTO,
   ) {
-    return this.service.get_local_reviews(local, query);
+    return this.service.favorite(id, token);
+  }
+
+  @Delete('/favorite/:id')
+  unfav_review(
+    @Param('id', ParseIntPipe) id: number,
+    @TokenPayloadParam() token: PayloadDTO,
+  ) {
+    return this.service.unfavorite(id, token);
+  }
+
+  @Get('/local/:id')
+  get(
+    @Param('id') local: string,
+    @Query() query: GetReviewsQueryDTO,
+    @TokenPayloadParam() token: PayloadDTO,
+  ) {
+    return this.service.get_local_reviews(local, query, token);
+  }
+
+  @Get('/search/:term')
+  search_reviews(
+    @Param('term') term: string,
+    @Query() query: GetReviewsQueryDTO,
+    @TokenPayloadParam() token: PayloadDTO,
+  ) {
+    return this.service.search_reviews(term, query, token);
   }
 
   @Get('/:id')
-  get_review(@Param('id', ParseIntPipe) id: number) {
-    return this.service.get_review(id);
+  get_review(
+    @Param('id', ParseIntPipe) id: number,
+    @TokenPayloadParam() token: PayloadDTO,
+  ) {
+    return this.service.get_review(id, token);
   }
 
-  @UseGuards(AuthToken)
   @Delete('/:id')
   delete_review(
     @Param('id', ParseIntPipe) id: number,
@@ -80,7 +113,6 @@ export class ReviewController {
     return this.service.delete_review(id, token);
   }
 
-  @UseGuards(AuthToken)
   @Post('/:id/like')
   like_review(
     @Param('id', ParseIntPipe) id: number,
@@ -89,7 +121,6 @@ export class ReviewController {
     return this.service.like_review(id, token);
   }
 
-  @UseGuards(AuthToken)
   @Post('/:id/dislike')
   dislike_review(
     @Param('id', ParseIntPipe) id: number,
@@ -98,7 +129,6 @@ export class ReviewController {
     return this.service.dislike_review(id, token);
   }
 
-  @UseGuards(AuthToken)
   @Patch('/:id/visibility')
   change_review_visibility(
     @Param('id', ParseIntPipe) id: number,
