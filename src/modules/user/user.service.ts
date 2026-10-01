@@ -101,7 +101,7 @@ export class UserService {
       ...(query.cursor && {
         cursor: { id: query.cursor },
       }),
-      where: { review: { deletedAt: null, id_usuario: token.sub } },
+      where: { review: { deletedAt: null, oculto: false }, id_usuario: token.sub },
       orderBy: { createdAt: 'desc' },
       select: {
         review: {

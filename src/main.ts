@@ -14,8 +14,13 @@ async function bootstrap() {
     }),
   );
   app.use(cookieParser());
+  const origins = (process.env.FRONTEND_URL ?? '')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+
   app.enableCors({
-    origin: '*',
+    origin: origins.includes('*') ? true : origins,
     credentials: true,
   });
   await app.listen(process.env.PORT ?? 3000, '0.0.0.0');
