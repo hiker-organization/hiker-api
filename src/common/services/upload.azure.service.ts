@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { FilesAzureService } from './file.azure.service.js';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class UploadAzureService {
@@ -8,7 +9,8 @@ export class UploadAzureService {
   async addImageReview(imageBuffer: Buffer, fileName: string) {
     const conainerName = process.env.AZURE_STORAGE_CONTAINER_REVIEWS!;
     const extension = fileName.split('.').pop();
-    const blobName = `review-${Date.now()}.${extension}`;
+    const uniqueId = crypto.randomUUID();
+    const blobName = `review-${uniqueId}.${extension}`;
     await this.fileAzureService.createBlobFromStream(
       conainerName,
       blobName,
