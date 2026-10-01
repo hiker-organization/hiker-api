@@ -27,8 +27,8 @@ export class AuthController {
   }
 
   @Post('refresh')
-  refresh(@Body() refreshToken: string) {
-    return this.authService.refresh(refreshToken);
+  refresh(@Body() refreshTokenDto: RefreshTokenDTO) {
+    return this.authService.refresh(refreshTokenDto.refresh_token);
   }
 
   @Post('web/refresh')
@@ -40,8 +40,8 @@ export class AuthController {
   }
 
   @Post('logout')
-  logout(@Body() refreshToken: string) {
-    return this.authService.logout(refreshToken);
+  logout(@Body() refreshTokenDto: RefreshTokenDTO) {
+    return this.authService.logout(refreshTokenDto.refresh_token);
   }
 
   @Post('web/logout')
