@@ -20,7 +20,7 @@ async function bootstrap() {
   .filter(Boolean);
 
   app.enableCors({
-    origin: origins.includes('*') ? true : origins, // true = reflete a origem da requisição
+    origin: origins.includes('*') ? true : origins,
     credentials: true,
   });
   await app.listen(process.env.PORT ?? 3000, '0.0.0.0');
