@@ -138,6 +138,34 @@ export class TrilhaService {
     };
   }
 
+  // Trails on another user's profile: only the shared ones, like hidden reviews.
+  async user_trilhas(nick: string, query: GetReviewsQueryDTO) {
+    const user = await this.prisma.usuario.findFirst({
+      where: { nome_usuario: nick, deletedAt: null },
+      select: { id: true },
+    });
+    if (!user) throw new NotFoundException('Usuário não encontrado.');
+
+    const limit = query.limit ?? 20;
+    const trilhas = await this.prisma.trilha.findMany({
+      take: limit + 1,
+      skip: query.cursor ? 1 : 0,
+      ...(query.cursor && { cursor: { id: query.cursor } }),
+      where: { id_usuario: user.id, compartilhada: true, deletedAt: null },
+      orderBy: { id: 'desc' },
+      select: summary_select,
+    });
+
+    const hasNextPage = trilhas.length > limit;
+    const data = hasNextPage ? trilhas.slice(0, limit) : trilhas;
+    const nextCursor = hasNextPage ? data[data.length - 1].id : null;
+
+    return {
+      ...get_response('Trilhas do usuário', data, HttpStatus.OK),
+      nextCursor,
+    };
+  }
+
   // RF29: shared trails from every user, with a reduced route for the card preview.
   async feed(query: GetReviewsQueryDTO) {
     const limit = query.limit ?? 20;
