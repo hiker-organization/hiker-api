@@ -115,6 +115,23 @@ model Tag {
   em_trilhas      Tag_trilha[]
 }
 
+// Cache of the Google Places details of the places reviewed (RF7). Filled on demand,
+// so the Places API is called once per place. Reviews keep pointing to it by id_local.
+model Local {
+  place_id        String      @id
+  nome            String
+  cidade          String?
+  estado          String?
+  sigla_estado    String?
+  pais            String?
+  sigla_pais      String?
+  // The place itself is a city, so the card doesn't repeat the city name.
+  is_cidade       Boolean     @default(false)
+  endereco        String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
 model Tag_review {
   id              Int         @id             @default(autoincrement())
   id_review       Int
