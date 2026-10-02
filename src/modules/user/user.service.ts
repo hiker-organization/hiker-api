@@ -353,6 +353,7 @@ export class UserService {
             id: true,
             oculto: true,
             fotos: { select: { url: true } },
+            id_local: true,
             local: true,
             nota: true,
             descricao: true,
@@ -399,6 +400,7 @@ export class UserService {
           select: {
             id: true,
             fotos: { select: { url: true } },
+            id_local: true,
             local: true,
             nota: true,
             descricao: true,
