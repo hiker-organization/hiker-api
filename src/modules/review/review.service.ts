@@ -94,6 +94,7 @@ export class ReviewService {
         },
         select: {
           descricao: true,
+          id_local: true,
           local: true,
           qnt_likes: true,
           qnt_dislikes: true,
@@ -483,6 +484,7 @@ export class ReviewService {
       where: { id: id, oculto: false, deletedAt: null },
       select: {
         descricao: true,
+        id_local: true,
         local: true,
         qnt_likes: true,
         qnt_dislikes: true,
@@ -568,6 +570,7 @@ export class ReviewService {
       select: {
         id: true,
         descricao: true,
+        id_local: true,
         local: true,
         qnt_likes: true,
         qnt_favoritos: true,
@@ -669,6 +672,7 @@ export class ReviewService {
       select: {
         id: true,
         descricao: true,
+        id_local: true,
         local: true,
         qnt_likes: true,
         qnt_dislikes: true,
