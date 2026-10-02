@@ -17,6 +17,7 @@ import {
 import { APP_GUARD } from '@nestjs/core';
 import { AdminModule } from '../admin/admin.module.js';
 import { LocalModule } from '../local/local.module.js';
+import { TrilhaModule } from '../trilha/trilha.module.js';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { LocalModule } from '../local/local.module.js';
     ReviewModule,
     AdminModule,
     LocalModule,
+    TrilhaModule,
     ThrottlerModule,
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', '..', '..', 'imgs'),

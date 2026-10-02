@@ -27,6 +27,7 @@ model Usuario {
   deletedAt               DateTime?
 
   reviews         Review[]
+  trilhas         Trilha[]
   reviews_favoritas       Review_favorita[]
   denuncias       Denuncia[]
   tokens          Token_redefinicao_senha[]
@@ -111,6 +112,7 @@ model Tag {
   createdAt       DateTime                    @default(now())
 
   em_reviews      Tag_review[]
+  em_trilhas      Tag_trilha[]
 }
 
 model Tag_review {
@@ -122,6 +124,55 @@ model Tag_review {
   tag             Tag         @relation(fields: [id_tag], references: [id], onDelete: Cascade)
 }
 
+
+// Trail recorded in the app (RF24-RF30). "rota" holds the GPS path as a list of
+// segments, one per tracking session between pauses: [[[lat, lng], ...], ...].
+model Trilha {
+  id              Int         @id             @default(autoincrement())
+  id_usuario      Int
+  nome            String
+  cidade          String?
+  estado          String?
+  distancia_m     Float
+  passos          Int
+  duracao_s       Int
+  nota            Int
+  descricao       String
+  rota            Json
+  compartilhada   Boolean     @default(false)
+  iniciada_em     DateTime
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  deletedAt       DateTime?
+
+  autor           Usuario     @relation(fields: [id_usuario], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  fotos           Foto_trilha[]
+  tags            Tag_trilha[]
+
+  @@index([id_usuario])
+  @@index([compartilhada])
+}
+
+model Foto_trilha {
+  id              Int         @id             @default(autoincrement())
+  url             String
+  id_trilha       Int
+  createdAt       DateTime    @default(now())
+  trilha          Trilha      @relation(fields: [id_trilha], references: [id], onDelete: Cascade)
+
+  @@index([id_trilha])
+}
+
+model Tag_trilha {
+  id              Int         @id             @default(autoincrement())
+  id_trilha       Int
+  id_tag          Int
+
+  trilha          Trilha      @relation(fields: [id_trilha], references: [id], onDelete: Cascade)
+  tag             Tag         @relation(fields: [id_tag], references: [id], onDelete: Cascade)
+
+  @@index([id_trilha])
+}
 
 model Token_redefinicao_senha {
   id            Int         @id             @default(autoincrement())
