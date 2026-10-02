@@ -68,6 +68,14 @@ export class TrilhaController {
     return this.service.feed(query);
   }
 
+  @Get('/user/:nick')
+  user_trilhas(
+    @Param('nick') nick: string,
+    @Query() query: GetReviewsQueryDTO,
+  ) {
+    return this.service.user_trilhas(nick, query);
+  }
+
   @Get('/:id')
   get_trilha(
     @Param('id', ParseIntPipe) id: number,

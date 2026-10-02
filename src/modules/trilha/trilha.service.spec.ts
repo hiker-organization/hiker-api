@@ -60,7 +60,7 @@ describe('TrilhaService', () => {
     jest.clearAllMocks();
     prisma = {
       $transaction: jest.fn((callback: any) => callback(prisma)),
-      usuario: { findUnique: jest.fn() },
+      usuario: { findUnique: jest.fn(), findFirst: jest.fn() },
       tag: { findUnique: jest.fn(), create: jest.fn() },
       trilha: {
         create: jest.fn(),
@@ -147,6 +147,27 @@ describe('TrilhaService', () => {
     expect(rota[0].length).toBeLessThanOrEqual(151);
     expect(rota[0][rota[0].length - 1]).toEqual(
       longSegment[longSegment.length - 1],
+    );
+  });
+
+  it('lists only the shared trails of another user', async () => {
+    prisma.usuario.findFirst.mockResolvedValue({ id: 2 });
+    prisma.trilha.findMany.mockResolvedValue([]);
+
+    await service.user_trilhas('@outro', {});
+
+    expect(prisma.trilha.findMany.mock.calls[0][0].where).toEqual({
+      id_usuario: 2,
+      compartilhada: true,
+      deletedAt: null,
+    });
+  });
+
+  it('fails for an unknown user', async () => {
+    prisma.usuario.findFirst.mockResolvedValue(null);
+
+    await expect(service.user_trilhas('@nada', {})).rejects.toBeInstanceOf(
+      NotFoundException,
     );
   });
 });
