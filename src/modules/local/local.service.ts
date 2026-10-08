@@ -50,6 +50,17 @@ const local_select = {
 
 const CITY_TYPES = ['locality', 'administrative_area_level_2'];
 const TOP_TAGS = 10;
+const MAX_SEARCH_RESULTS = 50;
+
+type LocalBusca = ReturnType<typeof parse_place_details> & {
+  media_nota: number;
+  total_reviews: number;
+};
+
+// The typed text is matched literally: % and _ are not wildcards.
+function escape_like(text: string) {
+  return text.replace(/[\\%_]/g, (c) => `\\${c}`);
+}
 
 // Turns the Google Places details into the columns of the Local table.
 export function parse_place_details(
@@ -122,6 +133,27 @@ export class LocalService {
     return get_response('locais encontrados.', locais, HttpStatus.OK);
   }
 
+  // Places already reviewed, by name or city, ignoring case and accents. Only the ones
+  // with at least one visible review, the most reviewed first.
+  async buscar(q: string) {
+    const termo = `%${escape_like(q.trim())}%`;
+    const locais = await this.prisma.$queryRaw<LocalBusca[]>`
+      SELECT l.place_id, l.nome, l.cidade, l.estado, l.sigla_estado, l.pais,
+             l.sigla_pais, l.is_cidade, l.endereco,
+             AVG(r.nota)::float AS media_nota,
+             COUNT(r.id)::int AS total_reviews
+      FROM "Local" l
+      JOIN "Review" r
+        ON r.id_local = l.place_id AND r.oculto = false AND r."deletedAt" IS NULL
+      WHERE unaccent(l.nome) ILIKE unaccent(${termo})
+         OR unaccent(l.cidade) ILIKE unaccent(${termo})
+      GROUP BY l.place_id
+      ORDER BY total_reviews DESC, l.nome
+      LIMIT ${MAX_SEARCH_RESULTS}`;
+
+    return get_response('locais encontrados.', locais, HttpStatus.OK);
+  }
+
   // Places that fail to load are left out, the cards just don't show their location.
   async get_locais(ids: string[]) {
     const unique = [...new Set(ids)];
@@ -143,7 +175,7 @@ export class LocalService {
 
   // RF7: rating, number of reviews and most used labels of the place.
   async get_local(placeId: string) {
-    const local = await this.find_or_fetch(placeId);
+    const local = await this.ensure_local(placeId);
     const where = { id_local: placeId, oculto: false, deletedAt: null };
 
     const [stats, tagCounts] = await Promise.all([
@@ -179,37 +211,18 @@ export class LocalService {
     );
   }
 
-  private async find_or_fetch(placeId: string) {
+  // Called when a review or trail is created: the first one saves the place, the next
+  // ones just point to it.
+  async ensure_local(placeId: string) {
     const cached = await this.prisma.local.findUnique({
       where: { place_id: placeId },
       select: local_select,
     });
-    if (cached) return cached;
-
-    try {
-      return await this.fetch_and_save(placeId);
-    } catch (e) {
-      // Without the Google details the page still opens with the name saved in a review.
-      const review = await this.prisma.review.findFirst({
-        where: { id_local: placeId },
-        select: { local: true },
-      });
-      if (!review) throw e;
-      return {
-        place_id: placeId,
-        nome: review.local,
-        cidade: null,
-        estado: null,
-        sigla_estado: null,
-        pais: null,
-        sigla_pais: null,
-        is_cidade: false,
-        endereco: null,
-      };
-    }
+    return cached ?? this.fetch_and_save(placeId);
   }
 
-  private async fetch_and_save(placeId: string) {
+  // Also used by scripts/backfill-locais.ts.
+  async fetch_and_save(placeId: string) {
     const response = await fetch(
       `https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}?languageCode=pt-BR&regionCode=br`,
       {

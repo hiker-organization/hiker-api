@@ -8,6 +8,7 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { LocalService } from '../local/local.service.js';
 import { CreateReviewDTO } from './dtos/create-review.dto.js';
 import { GetReviewsQueryDTO } from './dtos/get-reviews-query.dto.js';
 import { PayloadDTO } from '../auth/dto/payload.dto.js';
@@ -21,6 +22,7 @@ export class ReviewService {
   constructor(
     private prisma: PrismaService,
     private readonly uploadAzureService: UploadAzureService,
+    private readonly localService: LocalService,
   ) {}
 
   async create_review(
@@ -31,6 +33,8 @@ export class ReviewService {
     const fotosUrls: string[] = [];
 
     await this.verify_block(token);
+    // Before the photos are uploaded, so a place that can't be loaded uploads nothing.
+    await this.localService.ensure_local(data.local_id);
 
     if (fotos && fotos.length > 0) {
       await Promise.all(

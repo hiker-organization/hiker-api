@@ -6,6 +6,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { UploadAzureService } from '../../common/services/upload.azure.service.js';
 import { UploadAzureServiceMock } from '../review/mocks/uploadAzureService.mock.js';
 import { CreateTrilhaDTO } from './dtos/create-trilha.dto.js';
+import { LocalService } from '../local/local.service.js';
 
 const token = {
   sub: 1,
@@ -19,6 +20,7 @@ const token = {
 
 const trilhaData: CreateTrilhaDTO = {
   nome: 'Cachoeira da Pavuna',
+  local_id: 'park1',
   cidade: 'Jundiaí',
   estado: 'São Paulo',
   distancia_m: 5000,
@@ -55,9 +57,13 @@ const fullTrilha = (overrides: Record<string, unknown> = {}) => ({
 describe('TrilhaService', () => {
   let service: TrilhaService;
   let prisma: any;
+  let localService: { ensure_local: jest.Mock<(placeId: string) => any> };
+  let upload: ReturnType<typeof UploadAzureServiceMock>;
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    localService = { ensure_local: jest.fn() };
+    upload = UploadAzureServiceMock();
     prisma = {
       $transaction: jest.fn((callback: any) => callback(prisma)),
       usuario: { findUnique: jest.fn(), findFirst: jest.fn() },
@@ -74,7 +80,8 @@ describe('TrilhaService', () => {
       providers: [
         TrilhaService,
         { provide: PrismaService, useValue: prisma },
-        { provide: UploadAzureService, useValue: UploadAzureServiceMock() },
+        { provide: UploadAzureService, useValue: upload },
+        { provide: LocalService, useValue: localService },
       ],
     }).compile();
 
@@ -99,10 +106,26 @@ describe('TrilhaService', () => {
     expect(result.statusCode).toEqual(201);
     const created = prisma.trilha.create.mock.calls[0][0].data;
     expect(created.id_usuario).toEqual(1);
+    expect(created.id_local).toEqual('park1');
+    expect(localService.ensure_local).toHaveBeenCalledWith('park1');
     expect(created.tags.create).toHaveLength(2);
     expect(prisma.tag.create).toHaveBeenCalledWith({
       data: { descritivo: 'cachoeira' },
     });
+  });
+
+  it('saves nothing when the place cannot be loaded', async () => {
+    localService.ensure_local.mockRejectedValue(
+      new NotFoundException('Local não encontrado.'),
+    );
+
+    await expect(
+      service.create_trilha(trilhaData, token, [
+        { buffer: Buffer.from(''), originalname: 'a.jpg' } as any,
+      ]),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(upload.addImageReview).not.toHaveBeenCalled();
+    expect(prisma.trilha.create).not.toHaveBeenCalled();
   });
 
   it('rejects an invalid route', async () => {

@@ -52,7 +52,9 @@ model Review {
   updatedAt       DateTime    @updatedAt
   deletedAt       DateTime?
   
-  autor       Usuario    @relation(fields: [id_usuario], references: [id], onDelete: Restrict, onUpdate: Cascade) 
+  autor       Usuario    @relation(fields: [id_usuario], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  // "local" is the name typed when the review was made, the details live in Local.
+  lugar       Local      @relation(fields: [id_local], references: [place_id], onDelete: Restrict, onUpdate: Cascade)
   denuncias   Denuncia[]
   
   fotos       Foto[]
@@ -115,8 +117,8 @@ model Tag {
   em_trilhas      Tag_trilha[]
 }
 
-// Cache of the Google Places details of the places reviewed (RF7). Filled on demand,
-// so the Places API is called once per place. Reviews keep pointing to it by id_local.
+// Google Places details of the places of reviews and trails (RF7). Saved when the first
+// review or trail of the place is created, so the Places API is called once per place.
 model Local {
   place_id        String      @id
   nome            String
@@ -130,6 +132,9 @@ model Local {
   endereco        String?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
+
+  reviews         Review[]
+  trilhas         Trilha[]
 }
 
 model Tag_review {
@@ -147,6 +152,8 @@ model Tag_review {
 model Trilha {
   id              Int         @id             @default(autoincrement())
   id_usuario      Int
+  // Optional only for the trails recorded before places were linked.
+  id_local        String?
   nome            String
   cidade          String?
   estado          String?
@@ -163,10 +170,12 @@ model Trilha {
   deletedAt       DateTime?
 
   autor           Usuario     @relation(fields: [id_usuario], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  lugar           Local?      @relation(fields: [id_local], references: [place_id], onDelete: Restrict, onUpdate: Cascade)
   fotos           Foto_trilha[]
   tags            Tag_trilha[]
 
   @@index([id_usuario])
+  @@index([id_local])
   @@index([compartilhada])
 }
 

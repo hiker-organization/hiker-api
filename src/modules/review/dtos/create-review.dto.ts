@@ -6,6 +6,7 @@ import {
   IsString,
   MaxLength,
   IsBoolean,
+  Matches,
 } from 'class-validator';
 
 export class CreateReviewDTO {
@@ -14,8 +15,10 @@ export class CreateReviewDTO {
   @MaxLength(150, { message: 'limite máximo de caractéres: 150.' })
   public descricao!: string;
 
+  // Google place id.
   @IsString()
   @IsNotEmpty({ message: 'local é obrigatório.' })
+  @Matches(/^[A-Za-z0-9_-]+$/, { message: 'local inválido.' })
   public local_id!: string;
 
   @IsString()

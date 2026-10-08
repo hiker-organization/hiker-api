@@ -7,6 +7,7 @@ import {
   expect,
 } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
+import { NotFoundException } from '@nestjs/common';
 import { LocalService, parse_place_details } from './local.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
@@ -80,7 +81,8 @@ describe('LocalService', () => {
     global.fetch = fetchMock;
     prisma = {
       local: { findMany: jest.fn(), findUnique: jest.fn(), upsert: jest.fn() },
-      review: { aggregate: jest.fn(), findFirst: jest.fn() },
+      $queryRaw: jest.fn(),
+      review: { aggregate: jest.fn() },
       tag_review: { groupBy: jest.fn() },
       tag: { findMany: jest.fn() },
     };
@@ -151,23 +153,60 @@ describe('LocalService', () => {
     });
   });
 
-  it('opens the page with the review name when Google fails', async () => {
+  it('reuses a place already saved', async () => {
+    prisma.local.findUnique.mockResolvedValue({ place_id: 'a', nome: 'A' });
+
+    const local = await service.ensure_local('a');
+
+    expect(local).toEqual({ place_id: 'a', nome: 'A' });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('saves a new place with the Google details', async () => {
     prisma.local.findUnique.mockResolvedValue(null);
-    fetchMock.mockResolvedValue(new Response('error', { status: 500 }));
-    prisma.review.findFirst.mockResolvedValue({ local: 'Pico do Jaraguá' });
-    prisma.review.aggregate.mockResolvedValue({
-      _avg: { nota: null },
-      _count: { _all: 0 },
-    });
-    prisma.tag_review.groupBy.mockResolvedValue([]);
-    prisma.tag.findMany.mockResolvedValue([]);
+    fetchMock.mockResolvedValue(new Response(JSON.stringify(parkDetails)));
+    prisma.local.upsert.mockImplementation((args: any) =>
+      Promise.resolve(args.create),
+    );
 
-    const result = await service.get_local('pico');
+    const local = await service.ensure_local('park1');
 
-    expect(result.data).toMatchObject({
-      place_id: 'pico',
-      nome: 'Pico do Jaraguá',
-      cidade: null,
-    });
+    expect(local).toMatchObject({ place_id: 'park1', cidade: 'Jundiaí' });
+    expect(prisma.local.upsert).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects a place Google does not know', async () => {
+    prisma.local.findUnique.mockResolvedValue(null);
+    fetchMock.mockResolvedValue(new Response('not found', { status: 404 }));
+
+    await expect(service.ensure_local('nope')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+    expect(prisma.local.upsert).not.toHaveBeenCalled();
+  });
+
+  it('searches ignoring accents and only places with visible reviews', async () => {
+    const rows = [
+      { place_id: 'b', nome: 'Parque B', media_nota: 5, total_reviews: 4 },
+    ];
+    prisma.$queryRaw.mockResolvedValue(rows);
+
+    const result = await service.buscar(' jundiai ');
+
+    expect(result.data).toEqual(rows);
+    const [strings, ...values] = prisma.$queryRaw.mock.calls[0];
+    const sql = (strings as string[]).join('?');
+    expect(sql).toContain('unaccent(l.nome) ILIKE unaccent(?)');
+    expect(sql).toContain('r.oculto = false AND r."deletedAt" IS NULL');
+    expect(values[0]).toEqual('%jundiai%');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('matches % and _ literally', async () => {
+    prisma.$queryRaw.mockResolvedValue([]);
+
+    await service.buscar('100%_x');
+
+    expect(prisma.$queryRaw.mock.calls[0][1]).toEqual('%100\\%\\_x%');
   });
 });
