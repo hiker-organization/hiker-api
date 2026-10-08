@@ -1,25 +1,30 @@
 import { beforeEach, describe, jest, it, expect } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
+import { NotFoundException } from '@nestjs/common';
 import { ReviewService } from './review.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { PrismaServiceMock } from '../user/mocks/prismaService.mock.js';
 import { UploadAzureServiceMock } from './mocks/uploadAzureService.mock.js';
 import { ReviewMock } from './mocks/reviewCreate.mock.js';
 import { UploadAzureService } from '../../common/services/upload.azure.service.js';
+import { LocalService } from '../local/local.service.js';
 
 describe('ReviewService', () => {
   let reviewService: ReviewService;
   let prismaService: PrismaService;
   let uploadAzureService: UploadAzureService;
+  let localService: { ensure_local: jest.Mock<(placeId: string) => any> };
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    localService = { ensure_local: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ReviewService,
         { provide: PrismaService, useValue: PrismaServiceMock() },
         { provide: UploadAzureService, useValue: UploadAzureServiceMock() },
+        { provide: LocalService, useValue: localService },
       ],
     }).compile();
 
@@ -88,6 +93,27 @@ describe('ReviewService', () => {
         },
         statusCode: 201,
       });
+      expect(localService.ensure_local).toHaveBeenCalledWith(
+        review_data.local_id,
+      );
+    });
+
+    it('Should not create the review when the place cannot be loaded.', async () => {
+      jest
+        .spyOn(prismaService.usuario, 'findUnique')
+        .mockResolvedValue({ banido: false, bloqueado: false } as any);
+      localService.ensure_local.mockRejectedValue(
+        new NotFoundException('Local não encontrado.'),
+      );
+      const create = jest.spyOn(prismaService.review, 'create');
+
+      await expect(
+        reviewService.create_review(ReviewMock, { sub: 1 } as any, [
+          { buffer: Buffer.from(''), originalname: 'a.jpg' } as any,
+        ]),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(uploadAzureService.addImageReview).not.toHaveBeenCalled();
+      expect(create).not.toHaveBeenCalled();
     });
   });
 });
