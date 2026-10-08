@@ -7,6 +7,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { LocalService } from '../local/local.service.js';
 import { UploadAzureService } from '../../common/services/upload.azure.service.js';
 import { PayloadDTO } from '../auth/dto/payload.dto.js';
 import { GetReviewsQueryDTO } from '../review/dtos/get-reviews-query.dto.js';
@@ -49,6 +50,7 @@ export class TrilhaService {
   constructor(
     private prisma: PrismaService,
     private readonly uploadAzureService: UploadAzureService,
+    private readonly localService: LocalService,
   ) {}
 
   async create_trilha(
@@ -58,6 +60,8 @@ export class TrilhaService {
   ) {
     await this.verify_block(token);
     this.validate_rota(data.rota);
+    // Before the photos are uploaded, so a place that can't be loaded uploads nothing.
+    await this.localService.ensure_local(data.local_id);
 
     const fotosUrls = await Promise.all(
       (fotos ?? []).map((foto) =>
@@ -85,6 +89,7 @@ export class TrilhaService {
       return tx.trilha.create({
         data: {
           id_usuario: token.sub,
+          id_local: data.local_id,
           nome: data.nome,
           cidade: data.cidade,
           estado: data.estado,

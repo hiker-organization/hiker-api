@@ -25,6 +25,13 @@ export class LocalController {
     return this.service.search(query.q);
   }
 
+  // Search page: only places that already have reviews.
+  @UseGuards(AuthToken)
+  @Get('buscar')
+  buscar(@Query() query: SearchLocalDTO) {
+    return this.service.buscar(query.q);
+  }
+
   // Location of several places at once, for the review cards.
   @UseGuards(AuthToken)
   @Get()
