@@ -7,6 +7,7 @@ import { jwtConstants } from './config/jwt.constants.js';
 import { EmailService } from '../../common/services/email.service.js';
 import { HashingService } from '../../common/services/hash.service.js';
 import { BcryptService } from '../../common/services/bcript.service.js';
+import { AuthValidator } from './utils/validator/auth.validator.js';
 
 @Global()
 @Module({
@@ -30,6 +31,7 @@ import { BcryptService } from '../../common/services/bcript.service.js';
     },
     EmailService,
     AuthService,
+    AuthValidator,
   ],
   exports: [HashingService, EmailService],
 })

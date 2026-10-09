@@ -20,6 +20,8 @@ import { EmailService } from '../../common/services/email.service.js';
 import { RequestEmailChangeDTO } from './dtos/requestEmailChange.dto.js';
 import { ConfirmEmailChangeDTO } from './dtos/confirmEmailChange.dto.js';
 import { randomInt } from 'node:crypto';
+import { GlobalValidator } from '../../common/validators/global.validator.js';
+import { UserValidator } from './validator/user.validator.js';
 
 @Injectable()
 export class UserService {
@@ -28,18 +30,20 @@ export class UserService {
     private readonly hashService: HashingService,
     private readonly uploadAzureService: UploadAzureService,
     private readonly emailService: EmailService,
+    private globalValidator: GlobalValidator,
+    private userValidator: UserValidator,
   ) {}
 
   async create_user(data: CreateUserDTO, foto?: Express.Multer.File) {
-    await this.email_empty_or_fail(data.email);
+    await this.userValidator.email_empty_or_fail(data.email);
 
-    await this.numero_is_equal_fail(data.numero_celular);
+    await this.userValidator.numero_is_equal_fail(data.numero_celular);
 
     const hash = await this.hashService.hash(data.senha);
 
     const nick = `@${data.nome_usuario}`;
 
-    await this.nick_empty_or_fail(nick);
+    await this.userValidator.nick_empty_or_fail(nick);
 
     if (foto) {
       data.foto_url = await this.uploadAzureService.addImageUser(
@@ -65,7 +69,7 @@ export class UserService {
   }
 
   async delete_user(token: PayloadDTO) {
-    const user = await this.find_user_or_fail(token.sub);
+    const user = await this.userValidator.find_user_or_fail(token.sub);
 
     const suffix = `_deleted_${user.id}`;
 
@@ -84,12 +88,12 @@ export class UserService {
   }
 
   async get_user(nick: string, token: PayloadDTO) {
-    const user = await this.get_user_with_nick(nick, token.sub);
+    const user = await this.userValidator.get_user_with_nick(nick, token.sub);
     return get_response('Perfil do usuário abaixo', user, 200);
   }
 
   async get_me(token: PayloadDTO) {
-    const user = await this.get_user_with_full_data(token.sub);
+    const user = await this.userValidator.get_user_with_full_data(token.sub);
     return get_response('Seu perfil abaixo', user, 200);
   }
 
@@ -141,11 +145,16 @@ export class UserService {
     const data = hasNextPage ? reviews.slice(0, limit) : reviews;
     const nextCursor = hasNextPage ? data[data.length - 1].review.id : null;
 
-    const favoriteIds = await this.favorited_reviews(
+    const favoriteIds = await this.globalValidator.favorited_reviews(
       reviews.map((review) => review.review.id),
       token.sub,
     );
-    const reactions = await this.get_user_reactions_for_reviews(
+    const reactions = await this.globalValidator.get_user_reactions_for_reviews(
+      data.map((review) => review.review.id),
+      token.sub,
+    );
+
+    const reportsIds = await this.globalValidator.reported_reviews(
       data.map((review) => review.review.id),
       token.sub,
     );
@@ -156,6 +165,7 @@ export class UserService {
         liked: reactions.get(review.review.id) === 'LIKE',
         disliked: reactions.get(review.review.id) === 'DISLIKE',
         favorited: favoriteIds.has(review.review.id),
+        reported: reportsIds.has(review.review.id),
         fotos: review.review.fotos.map((foto) => ({
           url: `${process.env.API_STATIC_REVIEWS}${foto.url}`,
         })),
@@ -175,16 +185,16 @@ export class UserService {
     token: PayloadDTO,
     foto?: Express.Multer.File,
   ) {
-    const user = await this.find_user_or_fail(token.sub);
+    const user = await this.userValidator.find_user_or_fail(token.sub);
 
     data.nome_usuario = data.nome_usuario ? `@${data.nome_usuario}` : undefined;
 
     if (data.nome_usuario && data.nome_usuario !== user.nome_usuario) {
-      await this.nick_empty_or_fail(data.nome_usuario);
+      await this.userValidator.nick_empty_or_fail(data.nome_usuario);
     }
 
     if (data.numero_celular && data.numero_celular !== user.numero_celular) {
-      await this.numero_is_equal_fail(data.numero_celular);
+      await this.userValidator.numero_is_equal_fail(data.numero_celular);
     }
 
     if (foto) {
@@ -224,14 +234,13 @@ export class UserService {
     );
   }
 
-  // RN17.6: the new e-mail is only applied after the code sent to the current e-mail is confirmed.
   async request_email_change(data: RequestEmailChangeDTO, token: PayloadDTO) {
-    const user = await this.find_user_or_fail(token.sub);
+    const user = await this.userValidator.find_user_or_fail(token.sub);
 
     if (data.email === user.email)
       throw new BadRequestException('O novo e-mail é igual ao atual.');
 
-    await this.email_empty_or_fail(data.email);
+    await this.userValidator.email_empty_or_fail(data.email);
 
     const code = randomInt(100000, 1000000).toString();
     const expiresAt = new Date(Date.now() + 1000 * 60 * 15);
@@ -259,7 +268,7 @@ export class UserService {
   }
 
   async confirm_email_change(data: ConfirmEmailChangeDTO, token: PayloadDTO) {
-    const user = await this.find_user_or_fail(token.sub);
+    const user = await this.userValidator.find_user_or_fail(token.sub);
 
     const emailToken = await this.prisma.token_alteracao_email.findFirst({
       where: { token: data.token, id_usuario: user.id },
@@ -269,7 +278,7 @@ export class UserService {
       throw new BadRequestException('Código inválido ou expirado.');
 
     // The e-mail may have been taken between the request and the confirmation.
-    await this.email_empty_or_fail(emailToken.novo_email);
+    await this.userValidator.email_empty_or_fail(emailToken.novo_email);
 
     await this.prisma.$transaction([
       this.prisma.usuario.update({
@@ -289,7 +298,7 @@ export class UserService {
   }
 
   async update_password(data: UpdatePasswordDTO, token: PayloadDTO) {
-    const user = await this.find_user_or_fail(token.sub);
+    const user = await this.userValidator.find_user_or_fail(token.sub);
 
     if (!(await this.hashService.compare(data.senha_atual, user.senha))) {
       throw new ConflictException('Senha atual incorreta.');
@@ -303,229 +312,5 @@ export class UserService {
     });
 
     return message_response('Senha alterada com sucesso.', 200);
-  }
-
-  private async find_user_or_fail(id: number) {
-    const user = await this.prisma.usuario.findFirst({
-      where: { id, deletedAt: null },
-    });
-    if (!user) throw new NotFoundException('Usuário não encontrado.');
-    return user;
-  }
-  private async email_empty_or_fail(email: string): Promise<boolean> {
-    const user = await this.prisma.usuario.findFirst({
-      where: { email: email, deletedAt: null },
-    });
-
-    if (user) throw new ConflictException('Email já existente.');
-
-    return true;
-  }
-  private async nick_empty_or_fail(nick: string): Promise<boolean> {
-    const user = await this.prisma.usuario.findFirst({
-      where: { nome_usuario: nick, deletedAt: null },
-    });
-
-    if (user) throw new ConflictException('Nome de usuário já existente.');
-
-    return true;
-  }
-  private async numero_is_equal_fail(numero: string): Promise<boolean> {
-    const user = await this.prisma.usuario.findFirst({
-      where: { numero_celular: numero, deletedAt: null },
-    });
-
-    if (user) throw new ConflictException('numero de celular já cadastrado.');
-
-    return true;
-  }
-  private async get_user_with_full_data(id: number) {
-    const user = await this.prisma.usuario.findUnique({
-      where: { id: id, deletedAt: null },
-      select: {
-        foto_url: true,
-        nome_exibicao: true,
-        nome_usuario: true,
-        email: true,
-        data_nascimento: true,
-        numero_celular: true,
-        reputacao: true,
-        reviews: {
-          where: { deletedAt: null },
-          select: {
-            id: true,
-            oculto: true,
-            fotos: { select: { url: true } },
-            id_local: true,
-            local: true,
-            nota: true,
-            descricao: true,
-            tags: { select: { tag: { select: { descritivo: true } } } },
-            qnt_dislikes: true,
-            qnt_likes: true,
-            qnt_denuncia: true,
-            createdAt: true,
-          },
-        },
-      },
-    });
-
-    if (!user) throw new NotFoundException('Usuário não encontrado.');
-
-    const reviews = await Promise.all(
-      user.reviews.map(async (review) => ({
-        ...review,
-        fotos: await Promise.all(
-          review.fotos.map(async (foto) => ({
-            url: await this.uploadAzureService.getReviewImageUrl(foto.url),
-          })),
-        ),
-      })),
-    );
-
-    return {
-      ...user,
-      foto_url: user.foto_url
-        ? await this.uploadAzureService.getUserImageUrl(user.foto_url)
-        : null,
-      reviews,
-    };
-  }
-  private async get_user_with_nick(nick: string, viewerId: number) {
-    const user = await this.prisma.usuario.findFirst({
-      where: { nome_usuario: nick, deletedAt: null },
-      select: {
-        foto_url: true,
-        nome_exibicao: true,
-        nome_usuario: true,
-        reputacao: true,
-        reviews: {
-          where: { oculto: false, deletedAt: null },
-          select: {
-            id: true,
-            fotos: { select: { url: true } },
-            id_local: true,
-            local: true,
-            nota: true,
-            descricao: true,
-            tags: { select: { tag: { select: { descritivo: true } } } },
-            qnt_dislikes: true,
-            qnt_likes: true,
-            qnt_denuncia: true,
-            qnt_favoritos: true,
-            createdAt: true,
-          },
-        },
-      },
-    });
-
-    if (!user) throw new NotFoundException('Usuário não encontrado.');
-
-    const reactionMap = await this.get_user_reactions_for_reviews(
-      user.reviews.map((review) => review.id),
-      viewerId,
-    );
-
-    const favoriteIds = await this.favorited_reviews(
-      user.reviews.map((review) => review.id),
-      viewerId,
-    );
-
-    const reportsIds = await this.reported_reviews(
-      user.reviews.map((review) => review.id),
-      viewerId,
-    );
-
-    const reviews = await Promise.all(
-      user.reviews.map(async (review) => ({
-        ...review,
-        liked: reactionMap.get(review.id) === 'LIKE',
-        disliked: reactionMap.get(review.id) === 'DISLIKE',
-        reported: reportsIds.has(review.id),
-        favorited: favoriteIds.has(review.id),
-        fotos: await Promise.all(
-          review.fotos.map(async (foto) => ({
-            url: await this.uploadAzureService.getReviewImageUrl(foto.url),
-          })),
-        ),
-      })),
-    );
-
-    return {
-      ...user,
-      foto_url: user.foto_url
-        ? await this.uploadAzureService.getUserImageUrl(user.foto_url)
-        : null,
-      reviews,
-    };
-  }
-  private async get_user_reactions_for_reviews(
-    reviewIds: number[],
-    userId: number,
-  ) {
-    const reactionMap = new Map<number, string>();
-
-    if (reviewIds.length === 0) {
-      return reactionMap;
-    }
-
-    const reactions = await this.prisma.voto_review.findMany({
-      where: {
-        id_usuario: userId,
-        id_review: {
-          in: reviewIds,
-        },
-      },
-      select: {
-        id_review: true,
-        tipo: true,
-      },
-    });
-
-    reactions.forEach((reaction) => {
-      reactionMap.set(reaction.id_review, reaction.tipo);
-    });
-
-    return reactionMap;
-  }
-  private async favorited_reviews(reviewsId: number[], userId: number) {
-    if (reviewsId.length === 0) return new Set<number>();
-
-    const favorites = await this.prisma.review_favorita.findMany({
-      where: {
-        id_usuario: userId,
-        id_review: {
-          in: reviewsId,
-        },
-      },
-      select: {
-        id_review: true,
-      },
-    });
-
-    const favoriteIds = new Set(
-      favorites.map((favorite) => favorite.id_review),
-    );
-
-    return favoriteIds;
-  }
-  private async reported_reviews(reviewsId: number[], userId: number) {
-    if (reviewsId.length === 0) return new Set<number>();
-
-    const reports = await this.prisma.denuncia.findMany({
-      where: {
-        id_usuario: userId,
-        id_review: {
-          in: reviewsId,
-        },
-      },
-      select: {
-        id_review: true,
-      },
-    });
-
-    const reportsIds = new Set(reports.map((report) => report.id_review));
-
-    return reportsIds;
   }
 }
