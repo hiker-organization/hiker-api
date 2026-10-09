@@ -23,6 +23,7 @@ import { CreateReviewDTO } from './dtos/create-review.dto.js';
 import { GetReviewsQueryDTO } from './dtos/get-reviews-query.dto.js';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { SkipThrottle } from '@nestjs/throttler';
+import { CreateReportDTO } from './dtos/create-report.dto.js';
 
 @UseGuards(AuthToken)
 @SkipThrottle({ auth: true })
@@ -69,6 +70,11 @@ export class ReviewController {
     @TokenPayloadParam() token: PayloadDTO,
   ) {
     return this.service.favorite(id, token);
+  }
+
+  @Post('/report/:id')
+  report_review(@Param('id', ParseIntPipe) id: number, @TokenPayloadParam() token: PayloadDTO, @Body() data: CreateReportDTO){
+    return this.service.report(id, token, data)
   }
 
   @Delete('/favorite/:id')

@@ -360,6 +360,7 @@ export class UserService {
             tags: { select: { tag: { select: { descritivo: true } } } },
             qnt_dislikes: true,
             qnt_likes: true,
+            qnt_denuncia: true,
             createdAt: true,
           },
         },
@@ -407,6 +408,8 @@ export class UserService {
             tags: { select: { tag: { select: { descritivo: true } } } },
             qnt_dislikes: true,
             qnt_likes: true,
+            qnt_denuncia: true,
+            qnt_favoritos: true,
             createdAt: true,
           },
         },
@@ -424,12 +427,18 @@ export class UserService {
       user.reviews.map((review) => review.id),
       viewerId,
     );
+ 
+    const reportsIds = await this.reported_reviews(
+      user.reviews.map((review)=> review.id),
+      viewerId
+    )
 
     const reviews = await Promise.all(
       user.reviews.map(async (review) => ({
         ...review,
         liked: reactionMap.get(review.id) === 'LIKE',
         disliked: reactionMap.get(review.id) === 'DISLIKE',
+        reported: reportsIds.has(review.id),
         favorited: favoriteIds.has(review.id),
         fotos: await Promise.all(
           review.fotos.map(async (foto) => ({
@@ -496,5 +505,26 @@ export class UserService {
     );
 
     return favoriteIds;
+  }
+  private async reported_reviews(reviewsId: number[], userId: number){
+    if(reviewsId.length === 0) return new Set<number>()
+
+    const reports = await this.prisma.denuncia.findMany({
+      where:{
+        id_usuario: userId,
+        id_review: {
+          in: reviewsId
+        }
+      },
+      select: {
+        id_review: true,
+      }
+    })
+
+    const reportsIds = new Set(
+      reports.map((report)=> report.id_review)
+    )
+
+    return reportsIds
   }
 }

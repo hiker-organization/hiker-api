@@ -6,6 +6,7 @@ import {
   ForbiddenException,
   UnauthorizedException,
   UnprocessableEntityException,
+  ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { LocalService } from '../local/local.service.js';
@@ -16,6 +17,7 @@ import { UploadAzureService } from '../../common/services/upload.azure.service.j
 import { create_response } from '../../common/helpers/create-response.helper.js';
 import { get_response } from '../../common/helpers/get-response.helper.js';
 import { message_response } from '../../common/helpers/message-response.helper.js';
+import { CreateReportDTO } from './dtos/create-report.dto.js';
 
 @Injectable()
 export class ReviewService {
@@ -194,6 +196,29 @@ export class ReviewService {
     });
   }
 
+  async report(id: number, token: PayloadDTO, data: CreateReportDTO){
+    await this.verify_block(token)
+    await this.review_exists(id)
+    await this.review_reported(id, token.sub)
+    return await this.prisma.$transaction(async (report)=>{
+      await report.denuncia.create({
+        data: { 
+          categoria: data.categoria, 
+          descricao: data.descricao, 
+          id_usuario: token.sub, 
+          id_review: id 
+        }
+      })
+
+      await report.review.update({
+        where: { id: id },
+        data: { qnt_denuncia: { increment: 1 } }
+      })
+
+      return message_response("Denúncia realizada com sucesso, nossos administradores irão analisar.", 201)
+    })
+  }
+
   async get_reviews(query: GetReviewsQueryDTO, token: PayloadDTO) {
     const { data, nextCursor } = await this.find_reviews_with_full_content(
       query,
@@ -228,6 +253,8 @@ export class ReviewService {
         local: true,
         qnt_likes: true,
         qnt_dislikes: true,
+        qnt_denuncia: true,
+        qnt_favoritos: true,
         nota: true,
         createdAt: true,
         autor: {
@@ -261,12 +288,24 @@ export class ReviewService {
       token.sub,
     );
 
+    const favoriteIds = await this.favorited_reviews(
+      data.map((review) => review.id),
+      token.sub,
+    );
+
+    const reportsIds = await this.reported_reviews(
+      data.map((review)=> review.id),
+      token.sub
+    )
+
     return {
       message: 'Reviews disponíveis',
       data: data.map((review) => ({
         ...review,
         liked: reactions.get(review.id) === 'LIKE',
         disliked: reactions.get(review.id) === 'DISLIKE',
+        favorited: favoriteIds.has(review.id),
+        reported: reportsIds.has(review.id),
         fotos: review.fotos.map((foto) => ({
           url: `${process.env.API_STATIC_REVIEWS}${foto.url}`,
         })),
@@ -442,6 +481,16 @@ export class ReviewService {
     );
   }
 
+  private async review_reported(id_review: number, id_user: number) {
+    const report = await this.prisma.denuncia.findUnique({
+      where: { id_usuario_id_review: { id_review: id_review, id_usuario: id_user } }
+    })
+
+    if(report) throw new ConflictException("Você já denunciou esta review.")
+    
+    return
+  }
+
   private async verify_block(token: PayloadDTO) {
     const user = await this.prisma.usuario.findUnique({
       where: { email: token.email },
@@ -492,6 +541,7 @@ export class ReviewService {
         local: true,
         qnt_likes: true,
         qnt_dislikes: true,
+        qnt_denuncia: true,
         qnt_favoritos: true,
         nota: true,
         createdAt: true,
@@ -535,6 +585,16 @@ export class ReviewService {
         },
       },
     });
+
+    const reported = await this.prisma.denuncia.findUnique({
+      where: {
+        id_usuario_id_review: {
+          id_usuario: userId,
+          id_review: id
+        }
+      }
+    })
+
     const fotos = await Promise.all(
       review.fotos.map(async (foto) => ({
         url: await this.uploadAzureService.getReviewImageUrl(foto.url),
@@ -546,6 +606,7 @@ export class ReviewService {
       liked: reaction?.tipo === 'LIKE',
       disliked: reaction?.tipo === 'DISLIKE',
       favorited: favorited !== null,
+      reported: reported !== null,
       fotos,
       autor: {
         ...review.autor,
@@ -578,6 +639,7 @@ export class ReviewService {
         local: true,
         qnt_likes: true,
         qnt_favoritos: true,
+        qnt_denuncia: true,
         qnt_dislikes: true,
         nota: true,
         createdAt: true,
@@ -617,11 +679,17 @@ export class ReviewService {
       userId,
     );
 
+    const reportsIds = await this.reported_reviews(
+      data.map((review)=> review.id),
+      userId
+    )
+
     const data_with_fotos = await Promise.all(
       data.map(async (review) => ({
         ...review,
         liked: reactions.get(review.id) === 'LIKE',
         favorited: favoriteIds.has(review.id),
+        reported: reportsIds.has(review.id),
         disliked: reactions.get(review.id) === 'DISLIKE',
         fotos: await Promise.all(
           review.fotos.map(async (foto) => ({
@@ -680,6 +748,7 @@ export class ReviewService {
         local: true,
         qnt_likes: true,
         qnt_dislikes: true,
+        qnt_denuncia: true,
         qnt_favoritos: true,
         nota: true,
         createdAt: true,
@@ -716,11 +785,17 @@ export class ReviewService {
       userId,
     );
 
+    const reportsIds = await this.reported_reviews(
+      data.map((review)=> review.id),
+      userId
+    )
+
     const data_with_fotos = await Promise.all(
       data.map(async (review) => ({
         ...review,
         liked: reactions.get(review.id) === 'LIKE',
         favorited: favoriteIds.has(review.id),
+        reported: reportsIds.has(review.id),
         disliked: reactions.get(review.id) === 'DISLIKE',
         fotos: await Promise.all(
           review.fotos.map(async (foto) => ({
@@ -751,6 +826,12 @@ export class ReviewService {
     });
     if (!review) throw new NotFoundException('Review não encontrada');
     return review;
+  }
+
+  private async review_exists(id: number) {
+    const review = await this.prisma.review.findUnique({ where: { id: id, AND: { deletedAt: null } } })
+    if(!review) throw new NotFoundException("Review não encontrada.")
+    return review
   }
 
   private async get_user_reactions_for_reviews(
@@ -803,5 +884,27 @@ export class ReviewService {
     );
 
     return favoriteIds;
+  }
+
+  private async reported_reviews(reviewsId: number[], userId: number){
+    if(reviewsId.length === 0) return new Set<number>()
+
+    const reports = await this.prisma.denuncia.findMany({
+      where:{
+        id_usuario: userId,
+        id_review: {
+          in: reviewsId
+        }
+      },
+      select: {
+        id_review: true,
+      }
+    })
+
+    const reportsIds = new Set(
+      reports.map((report)=> report.id_review)
+    )
+
+    return reportsIds
   }
 }

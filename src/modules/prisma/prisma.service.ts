@@ -6,7 +6,7 @@ import { PrismaClient } from '../../../generated/prisma/client.js';
 export class PrismaService extends PrismaClient {
   constructor() {
     const adapter = new PrismaPg({
-      connectionString: process.env.DATABASE_URL as string,
+      connectionString: process.env.LOCAL_DATABASE_URL as string,
     });
 
     super({ adapter });

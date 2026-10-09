@@ -223,6 +223,7 @@ model Token_alteracao_email {
 
 model Denuncia {
   id         Int        @id            @default(autoincrement())
+  categoria  String
   descricao  String
   createdAt  DateTime   @default(now())
 
