@@ -73,8 +73,12 @@ export class ReviewController {
   }
 
   @Post('/report/:id')
-  report_review(@Param('id', ParseIntPipe) id: number, @TokenPayloadParam() token: PayloadDTO, @Body() data: CreateReportDTO){
-    return this.service.report(id, token, data)
+  report_review(
+    @Param('id', ParseIntPipe) id: number,
+    @TokenPayloadParam() token: PayloadDTO,
+    @Body() data: CreateReportDTO,
+  ) {
+    return this.service.report(id, token, data);
   }
 
   @Delete('/favorite/:id')

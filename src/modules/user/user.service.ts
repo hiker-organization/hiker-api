@@ -101,7 +101,10 @@ export class UserService {
       ...(query.cursor && {
         cursor: { id: query.cursor },
       }),
-      where: { review: { deletedAt: null, oculto: false }, id_usuario: token.sub },
+      where: {
+        review: { deletedAt: null, oculto: false },
+        id_usuario: token.sub,
+      },
       orderBy: { createdAt: 'desc' },
       select: {
         review: {
@@ -427,11 +430,11 @@ export class UserService {
       user.reviews.map((review) => review.id),
       viewerId,
     );
- 
+
     const reportsIds = await this.reported_reviews(
-      user.reviews.map((review)=> review.id),
-      viewerId
-    )
+      user.reviews.map((review) => review.id),
+      viewerId,
+    );
 
     const reviews = await Promise.all(
       user.reviews.map(async (review) => ({
@@ -506,25 +509,23 @@ export class UserService {
 
     return favoriteIds;
   }
-  private async reported_reviews(reviewsId: number[], userId: number){
-    if(reviewsId.length === 0) return new Set<number>()
+  private async reported_reviews(reviewsId: number[], userId: number) {
+    if (reviewsId.length === 0) return new Set<number>();
 
     const reports = await this.prisma.denuncia.findMany({
-      where:{
+      where: {
         id_usuario: userId,
         id_review: {
-          in: reviewsId
-        }
+          in: reviewsId,
+        },
       },
       select: {
         id_review: true,
-      }
-    })
+      },
+    });
 
-    const reportsIds = new Set(
-      reports.map((report)=> report.id_review)
-    )
+    const reportsIds = new Set(reports.map((report) => report.id_review));
 
-    return reportsIds
+    return reportsIds;
   }
 }

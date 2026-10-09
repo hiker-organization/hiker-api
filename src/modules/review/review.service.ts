@@ -196,27 +196,30 @@ export class ReviewService {
     });
   }
 
-  async report(id: number, token: PayloadDTO, data: CreateReportDTO){
-    await this.verify_block(token)
-    await this.review_exists(id)
-    await this.review_reported(id, token.sub)
-    return await this.prisma.$transaction(async (report)=>{
+  async report(id: number, token: PayloadDTO, data: CreateReportDTO) {
+    await this.verify_block(token);
+    await this.review_exists(id);
+    await this.review_reported(id, token.sub);
+    return await this.prisma.$transaction(async (report) => {
       await report.denuncia.create({
-        data: { 
-          categoria: data.categoria, 
-          descricao: data.descricao, 
-          id_usuario: token.sub, 
-          id_review: id 
-        }
-      })
+        data: {
+          categoria: data.categoria,
+          descricao: data.descricao,
+          id_usuario: token.sub,
+          id_review: id,
+        },
+      });
 
       await report.review.update({
         where: { id: id },
-        data: { qnt_denuncia: { increment: 1 } }
-      })
+        data: { qnt_denuncia: { increment: 1 } },
+      });
 
-      return message_response("Denúncia realizada com sucesso, nossos administradores irão analisar.", 201)
-    })
+      return message_response(
+        'Denúncia realizada com sucesso, nossos administradores irão analisar.',
+        201,
+      );
+    });
   }
 
   async get_reviews(query: GetReviewsQueryDTO, token: PayloadDTO) {
@@ -294,9 +297,9 @@ export class ReviewService {
     );
 
     const reportsIds = await this.reported_reviews(
-      data.map((review)=> review.id),
-      token.sub
-    )
+      data.map((review) => review.id),
+      token.sub,
+    );
 
     return {
       message: 'Reviews disponíveis',
@@ -483,12 +486,14 @@ export class ReviewService {
 
   private async review_reported(id_review: number, id_user: number) {
     const report = await this.prisma.denuncia.findUnique({
-      where: { id_usuario_id_review: { id_review: id_review, id_usuario: id_user } }
-    })
+      where: {
+        id_usuario_id_review: { id_review: id_review, id_usuario: id_user },
+      },
+    });
 
-    if(report) throw new ConflictException("Você já denunciou esta review.")
-    
-    return
+    if (report) throw new ConflictException('Você já denunciou esta review.');
+
+    return;
   }
 
   private async verify_block(token: PayloadDTO) {
@@ -590,10 +595,10 @@ export class ReviewService {
       where: {
         id_usuario_id_review: {
           id_usuario: userId,
-          id_review: id
-        }
-      }
-    })
+          id_review: id,
+        },
+      },
+    });
 
     const fotos = await Promise.all(
       review.fotos.map(async (foto) => ({
@@ -680,9 +685,9 @@ export class ReviewService {
     );
 
     const reportsIds = await this.reported_reviews(
-      data.map((review)=> review.id),
-      userId
-    )
+      data.map((review) => review.id),
+      userId,
+    );
 
     const data_with_fotos = await Promise.all(
       data.map(async (review) => ({
@@ -786,9 +791,9 @@ export class ReviewService {
     );
 
     const reportsIds = await this.reported_reviews(
-      data.map((review)=> review.id),
-      userId
-    )
+      data.map((review) => review.id),
+      userId,
+    );
 
     const data_with_fotos = await Promise.all(
       data.map(async (review) => ({
@@ -829,9 +834,11 @@ export class ReviewService {
   }
 
   private async review_exists(id: number) {
-    const review = await this.prisma.review.findUnique({ where: { id: id, AND: { deletedAt: null } } })
-    if(!review) throw new NotFoundException("Review não encontrada.")
-    return review
+    const review = await this.prisma.review.findUnique({
+      where: { id: id, AND: { deletedAt: null } },
+    });
+    if (!review) throw new NotFoundException('Review não encontrada.');
+    return review;
   }
 
   private async get_user_reactions_for_reviews(
@@ -886,25 +893,23 @@ export class ReviewService {
     return favoriteIds;
   }
 
-  private async reported_reviews(reviewsId: number[], userId: number){
-    if(reviewsId.length === 0) return new Set<number>()
+  private async reported_reviews(reviewsId: number[], userId: number) {
+    if (reviewsId.length === 0) return new Set<number>();
 
     const reports = await this.prisma.denuncia.findMany({
-      where:{
+      where: {
         id_usuario: userId,
         id_review: {
-          in: reviewsId
-        }
+          in: reviewsId,
+        },
       },
       select: {
         id_review: true,
-      }
-    })
+      },
+    });
 
-    const reportsIds = new Set(
-      reports.map((report)=> report.id_review)
-    )
+    const reportsIds = new Set(reports.map((report) => report.id_review));
 
-    return reportsIds
+    return reportsIds;
   }
 }
