@@ -18,6 +18,7 @@ import { Roles } from '../auth/utils/decorators/role.decorator.js';
 import { Role } from '../auth/utils/enums/role.enum.js';
 import { GetUsersDTO } from './utils/dto/query.dto.js';
 import { BlockDTO } from './utils/dto/block.dto.js';
+import { GetReportsDTO } from './utils/dto/reports.dto.js';
 
 @Controller('admin')
 export class AdminController {
@@ -34,6 +35,13 @@ export class AdminController {
   @Get('users')
   show_users(@Query() query: GetUsersDTO) {
     return this.service.show_users(query);
+  }
+
+  @UseGuards(AuthToken, RolesGuard)
+  @Roles(Role.ADMIM)
+  @Get('reports')
+  show_reports(@Query() query: GetReportsDTO) {
+    return this.service.reports(query);
   }
 
   @UseGuards(AuthToken, RolesGuard)

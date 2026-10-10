@@ -6,6 +6,7 @@ import { get_response } from '../../common/helpers/get-response.helper.js';
 import { GetUsersDTO } from './utils/dto/query.dto.js';
 import { BlockDTO } from './utils/dto/block.dto.js';
 import { AdminValidator } from './utils/validator/admin.validator.js';
+import { GetReportsDTO } from './utils/dto/reports.dto.js';
 
 @Injectable()
 export class AdminService {
@@ -25,6 +26,15 @@ export class AdminService {
 
   async show_users(query: GetUsersDTO) {
     return await this.adminValidator.get_users(
+      query.page,
+      query.limit,
+      query.sortBy,
+      query.order,
+    );
+  }
+
+  async reports(query: GetReportsDTO) {
+    return await this.adminValidator.get_reports(
       query.page,
       query.limit,
       query.sortBy,
