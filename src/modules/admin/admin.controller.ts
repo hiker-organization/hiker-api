@@ -19,7 +19,9 @@ import { Role } from '../auth/utils/enums/role.enum.js';
 import { GetUsersDTO } from './utils/dto/query.dto.js';
 import { BlockDTO } from './utils/dto/block.dto.js';
 import { GetReportsDTO } from './utils/dto/reports.dto.js';
+import { SkipThrottle } from '@nestjs/throttler';
 
+@SkipThrottle({ auth: true })
 @Controller('admin')
 export class AdminController {
   constructor(private readonly service: AdminService) {}
