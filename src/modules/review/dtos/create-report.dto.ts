@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class CreateReportDTO {
   @IsString()
@@ -6,6 +6,6 @@ export class CreateReportDTO {
   public categoria!: string;
 
   @IsString()
-  @IsNotEmpty({ message: 'Por favor deixe uma descrição para a denúncia.' })
-  public descricao!: string;
+  @IsOptional()
+  public descricao?: string;
 }

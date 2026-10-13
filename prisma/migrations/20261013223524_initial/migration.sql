@@ -180,7 +180,7 @@ CREATE TABLE "Token_alteracao_email" (
 CREATE TABLE "Denuncia" (
     "id" SERIAL NOT NULL,
     "categoria" TEXT NOT NULL,
-    "descricao" TEXT NOT NULL,
+    "descricao" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "id_usuario" INTEGER NOT NULL,
     "id_review" INTEGER NOT NULL,
