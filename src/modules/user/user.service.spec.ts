@@ -26,7 +26,10 @@ describe('userService', () => {
         { provide: PrismaService, useValue: PrismaServiceMock() },
         { provide: HashingService, useValue: HashServiceMock() },
         { provide: UploadAzureService, useValue: UploadAzureServiceMock() },
-        { provide: EmailService, useValue: { sendEmailChangeEmail: jest.fn() } },
+        {
+          provide: EmailService,
+          useValue: { sendEmailChangeEmail: jest.fn() },
+        },
       ],
     }).compile();
 

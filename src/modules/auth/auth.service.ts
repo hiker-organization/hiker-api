@@ -1,23 +1,18 @@
-import {
-  BadRequestException,
-  HttpStatus,
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { HttpStatus, Injectable, UnauthorizedException } from '@nestjs/common';
 import { LoginDTO } from './dto/login.dto.js';
-import { RefreshTokenDTO } from './dto/refresh-token.dto.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { JwtService } from '@nestjs/jwt';
 import { EmailService } from '../../common/services/email.service.js';
 import { ForgotPasswordDTO } from './dto/forgot-password.dto.js';
 import { ResetPasswordDTO } from './dto/reset-password.dto.js';
 import { VerifyResetCodeDTO } from './dto/verify-reset-code.dto.js';
-import { randomInt, randomBytes, createHash } from 'node:crypto';
+import { randomInt } from 'node:crypto';
 import { HashingService } from '../../common/services/hash.service.js';
 import { login_response } from '../../common/helpers/login-response.helper.js';
 import { message_response } from '../../common/helpers/message-response.helper.js';
 import { jwtConstants } from './config/jwt.constants.js';
 import { Response, Request } from 'express';
+import { AuthValidator } from './utils/validator/auth.validator.js';
 
 @Injectable()
 export class AuthService {
@@ -26,18 +21,11 @@ export class AuthService {
     private readonly hashService: HashingService,
     private readonly jwtService: JwtService,
     private readonly emailService: EmailService,
+    private authValidator: AuthValidator,
   ) {}
 
-  private generateRefreshToken(): string {
-    return randomBytes(32).toString('hex');
-  }
-
-  private hashToken(token: string): string {
-    return createHash('sha256').update(token).digest('hex');
-  }
-
   async login(loginDto: LoginDTO) {
-    const user = await this.login_logical(loginDto);
+    const user = await this.authValidator.login_logical(loginDto);
 
     const accessToken = await this.jwtService.signAsync({
       sub: user.id,
@@ -45,8 +33,8 @@ export class AuthService {
       email: user.email,
     });
 
-    const refreshToken = this.generateRefreshToken();
-    const tokenHash = this.hashToken(refreshToken);
+    const refreshToken = this.authValidator.generateRefreshToken();
+    const tokenHash = this.authValidator.hashToken(refreshToken);
     const expiresAt = new Date(
       Date.now() + jwtConstants.refreshTokenTtl * 1000,
     );
@@ -92,7 +80,7 @@ export class AuthService {
   }
 
   async refresh(refreshToken: string) {
-    const tokenHash = this.hashToken(refreshToken);
+    const tokenHash = this.authValidator.hashToken(refreshToken);
 
     const stored = await this.prisma.token_refresh.findUnique({
       where: { token_hash: tokenHash },
@@ -124,8 +112,8 @@ export class AuthService {
       cargo: user.cargo,
     });
 
-    const newRefreshToken = this.generateRefreshToken();
-    const newTokenHash = this.hashToken(newRefreshToken);
+    const newRefreshToken = this.authValidator.generateRefreshToken();
+    const newTokenHash = this.authValidator.hashToken(newRefreshToken);
     const expiresAt = new Date(
       Date.now() + jwtConstants.refreshTokenTtl * 1000,
     );
@@ -175,7 +163,7 @@ export class AuthService {
   }
 
   async logout(refreshToken: string) {
-    const tokenHash = this.hashToken(refreshToken);
+    const tokenHash = this.authValidator.hashToken(refreshToken);
     await this.prisma.token_refresh.deleteMany({
       where: { token_hash: tokenHash },
     });
@@ -236,28 +224,8 @@ export class AuthService {
     );
   }
 
-  private async findValidResetToken(email: string, token: string) {
-    const user = await this.prisma.usuario.findFirst({
-      where: { email, deletedAt: null },
-    });
-
-    if (!user) {
-      throw new BadRequestException('Token inválido ou expirado.');
-    }
-
-    const resetToken = await this.prisma.token_redefinicao_senha.findFirst({
-      where: { token, id_usuario: user.id },
-    });
-
-    if (!resetToken || resetToken.expira_em < new Date()) {
-      throw new BadRequestException('Token inválido ou expirado.');
-    }
-
-    return { user, resetToken };
-  }
-
   async verify_reset_code(verifyResetCodeDto: VerifyResetCodeDTO) {
-    await this.findValidResetToken(
+    await this.authValidator.findValidResetToken(
       verifyResetCodeDto.email,
       verifyResetCodeDto.token,
     );
@@ -265,10 +233,11 @@ export class AuthService {
   }
 
   async reset_password(resetPasswordDto: ResetPasswordDTO) {
-    const { user, resetToken: token } = await this.findValidResetToken(
-      resetPasswordDto.email,
-      resetPasswordDto.token,
-    );
+    const { user, resetToken: token } =
+      await this.authValidator.findValidResetToken(
+        resetPasswordDto.email,
+        resetPasswordDto.token,
+      );
 
     const senhaHash = await this.hashService.hash(resetPasswordDto.senha);
 
@@ -283,39 +252,5 @@ export class AuthService {
     ]);
 
     return message_response('Senha redefinida com sucesso!', HttpStatus.OK);
-  }
-
-  private async verify_ban(email: string) {
-    const user = await this.prisma.usuario.findUnique({
-      where: { email: email },
-    });
-
-    if (user!.banido)
-      throw new UnauthorizedException(
-        'Você foi banido, não poderá mais usar nosso app.',
-      );
-  }
-
-  private async login_logical(data: LoginDTO) {
-    const user = await this.prisma.usuario.findFirst({
-      where: { email: data.email, deletedAt: null },
-    });
-
-    if (!user) {
-      throw new UnauthorizedException('Email ou senha inválidos.');
-    }
-
-    await this.verify_ban(user.email);
-
-    const senhaIsValid = await this.hashService.compare(
-      data.password,
-      user.senha,
-    );
-
-    if (!senhaIsValid) {
-      throw new UnauthorizedException('Email ou senha inválidos.');
-    }
-
-    return user;
   }
 }
