@@ -223,7 +223,8 @@ model Token_alteracao_email {
 
 model Denuncia {
   id         Int        @id            @default(autoincrement())
-  descricao  String
+  categoria  String
+  descricao  String?
   createdAt  DateTime   @default(now())
 
   autor      Usuario    @relation(fields: [id_usuario], references: [id], onDelete: Cascade, onUpdate: Cascade)

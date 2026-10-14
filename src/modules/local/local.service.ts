@@ -8,85 +8,21 @@ import {
 } from '@nestjs/common';
 import { get_response } from '../../common/helpers/get-response.helper.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-
-type PlacePrediction = {
-  placeId: string;
-  text?: { text: string };
-  structuredFormat?: {
-    mainText?: { text: string };
-    secondaryText?: { text: string };
-  };
-};
-
-type AutocompleteResponse = {
-  suggestions?: { placePrediction?: PlacePrediction }[];
-};
-
-type AddressComponent = {
-  longText?: string;
-  shortText?: string;
-  types?: string[];
-};
-
-export type PlaceDetailsResponse = {
-  id?: string;
-  displayName?: { text?: string };
-  formattedAddress?: string;
-  addressComponents?: AddressComponent[];
-  types?: string[];
-};
-
-const local_select = {
-  place_id: true,
-  nome: true,
-  cidade: true,
-  estado: true,
-  sigla_estado: true,
-  pais: true,
-  sigla_pais: true,
-  is_cidade: true,
-  endereco: true,
-};
-
-const CITY_TYPES = ['locality', 'administrative_area_level_2'];
-const TOP_TAGS = 10;
-const MAX_SEARCH_RESULTS = 50;
-
-type LocalBusca = ReturnType<typeof parse_place_details> & {
-  media_nota: number;
-  total_reviews: number;
-};
-
-// The typed text is matched literally: % and _ are not wildcards.
-function escape_like(text: string) {
-  return text.replace(/[\\%_]/g, (c) => `\\${c}`);
-}
-
-// Turns the Google Places details into the columns of the Local table.
-export function parse_place_details(
-  placeId: string,
-  details: PlaceDetailsResponse,
-) {
-  const components = details.addressComponents ?? [];
-  const find = (type: string) =>
-    components.find((c) => c.types?.includes(type));
-
-  const city = find('locality') ?? find('administrative_area_level_2');
-  const state = find('administrative_area_level_1');
-  const country = find('country');
-
-  return {
-    place_id: placeId,
-    nome: details.displayName?.text ?? city?.longText ?? 'Local',
-    cidade: city?.longText ?? null,
-    estado: state?.longText ?? null,
-    sigla_estado: state?.shortText ?? null,
-    pais: country?.longText ?? null,
-    sigla_pais: country?.shortText ?? null,
-    is_cidade: (details.types ?? []).some((t) => CITY_TYPES.includes(t)),
-    endereco: details.formattedAddress ?? null,
-  };
-}
+import {
+  AutocompleteResponse,
+  LocalBusca,
+  PlaceDetailsResponse,
+  PlacePrediction,
+} from './utils/types/local.types.js';
+import {
+  escape_like,
+  parse_place_details,
+} from './utils/functions/local.functions.js';
+import {
+  local_select,
+  MAX_SEARCH_RESULTS,
+  TOP_TAGS,
+} from './utils/constants/local.constants.js';
 
 @Injectable()
 export class LocalService {

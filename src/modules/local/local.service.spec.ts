@@ -8,8 +8,9 @@ import {
 } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
-import { LocalService, parse_place_details } from './local.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { parse_place_details } from './utils/functions/local.functions.js';
+import { LocalService } from './local.service.js';
 
 const parkDetails = {
   id: 'park1',
