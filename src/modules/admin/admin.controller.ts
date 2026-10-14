@@ -26,12 +26,6 @@ import { SkipThrottle } from '@nestjs/throttler';
 export class AdminController {
   constructor(private readonly service: AdminService) {}
 
-  @UseGuards(AuthToken)
-  @Post()
-  set(@TokenPayloadParam() token: PayloadDTO) {
-    return this.service.admin(token);
-  }
-
   @UseGuards(AuthToken, RolesGuard)
   @Roles(Role.ADMIM)
   @Get('users')
