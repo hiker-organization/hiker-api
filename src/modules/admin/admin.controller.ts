@@ -49,7 +49,7 @@ export class AdminController {
   @UseGuards(AuthToken, RolesGuard)
   @Roles(Role.ADMIM)
   @Put(':nick/ban')
-  dashboard(@Param('nick') nick: string) {
+  ban(@Param('nick') nick: string) {
     return this.service.ban(nick);
   }
 
