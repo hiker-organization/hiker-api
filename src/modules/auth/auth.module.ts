@@ -7,11 +7,18 @@ import { jwtConstants } from './config/jwt.constants.js';
 import { EmailService } from '../../common/services/email.service.js';
 import { HashingService } from '../../common/services/hash.service.js';
 import { BcryptService } from '../../common/services/bcript.service.js';
+import { AuthValidator } from './utils/validator/auth.validator.js';
+import { GoogleAuthService } from './utils/google/google-auth.service.js';
+import { UserValidator } from '../user/validator/user.validator.js';
+import { UploadAzureService } from '../../common/services/upload.azure.service.js';
+import { FilesAzureService } from '../../common/services/file.azure.service.js';
+import { CommonModule } from '../../common/common.module.js';
 
 @Global()
 @Module({
   imports: [
     PrismaModule,
+    CommonModule,
     JwtModule.register({
       global: true,
       secret: jwtConstants.secret,
@@ -30,6 +37,11 @@ import { BcryptService } from '../../common/services/bcript.service.js';
     },
     EmailService,
     AuthService,
+    AuthValidator,
+    GoogleAuthService,
+    UserValidator,
+    UploadAzureService,
+    FilesAzureService,
   ],
   exports: [HashingService, EmailService],
 })

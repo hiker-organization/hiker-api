@@ -12,17 +12,18 @@ const SEED_PASSWORD = 'Seed@12345'
 const TOTAL_REVIEWS = 50
 const REVIEW_PHOTO_POOL = 12
 
+// The ids are made up, so the Local of each one is saved here instead of coming from Google.
 const locais = [
-  { id: 'ChIJN1t_tDeuEmsRUsoyG83frY4', nome: 'Pico do Jaraguá' },
-  { id: 'ChIJLfyY9bVZzpQRFJE7J3kBPDA', nome: 'Parque Estadual da Cantareira' },
-  { id: 'ChIJbbqNLzRazpQRfRkWR3cGPDo', nome: 'Serra da Canastra' },
-  { id: 'ChIJvQz3HiHizpQRpNrN1pO_HaA', nome: 'Chapada dos Veadeiros' },
-  { id: 'ChIJU5pBi0cVzpQRfRkWR3cGPDo', nome: 'Parque Nacional do Itatiaia' },
-  { id: 'ChIJd8BlQ2BZwokRsGHrLiQgBgQ', nome: 'Trilha do Ouro' },
-  { id: 'ChIJN7dMJH5YzpQRkfJJJJJJJJJ', nome: 'Serra do Cipó' },
-  { id: 'ChIJK2jYBJJYzpQRpNrN1pO_HaB', nome: 'Pedra do Baú' },
-  { id: 'ChIJL3kZCKKZzpQRpNrN1pO_HaC', nome: 'Morro do Chapéu' },
-  { id: 'ChIJM4lACLLazpQRpNrN1pO_HaD', nome: 'Serra do Mar' },
+  { id: 'ChIJN1t_tDeuEmsRUsoyG83frY4', nome: 'Pico do Jaraguá', cidade: 'São Paulo', estado: 'São Paulo', uf: 'SP' },
+  { id: 'ChIJLfyY9bVZzpQRFJE7J3kBPDA', nome: 'Parque Estadual da Cantareira', cidade: 'Mairiporã', estado: 'São Paulo', uf: 'SP' },
+  { id: 'ChIJbbqNLzRazpQRfRkWR3cGPDo', nome: 'Serra da Canastra', cidade: 'São Roque de Minas', estado: 'Minas Gerais', uf: 'MG' },
+  { id: 'ChIJvQz3HiHizpQRpNrN1pO_HaA', nome: 'Chapada dos Veadeiros', cidade: 'Alto Paraíso de Goiás', estado: 'Goiás', uf: 'GO' },
+  { id: 'ChIJU5pBi0cVzpQRfRkWR3cGPDo', nome: 'Parque Nacional do Itatiaia', cidade: 'Itatiaia', estado: 'Rio de Janeiro', uf: 'RJ' },
+  { id: 'ChIJd8BlQ2BZwokRsGHrLiQgBgQ', nome: 'Trilha do Ouro', cidade: 'São José do Barreiro', estado: 'São Paulo', uf: 'SP' },
+  { id: 'ChIJN7dMJH5YzpQRkfJJJJJJJJJ', nome: 'Serra do Cipó', cidade: 'Santana do Riacho', estado: 'Minas Gerais', uf: 'MG' },
+  { id: 'ChIJK2jYBJJYzpQRpNrN1pO_HaB', nome: 'Pedra do Baú', cidade: 'São Bento do Sapucaí', estado: 'São Paulo', uf: 'SP' },
+  { id: 'ChIJL3kZCKKZzpQRpNrN1pO_HaC', nome: 'Morro do Chapéu', cidade: 'Morro do Chapéu', estado: 'Bahia', uf: 'BA' },
+  { id: 'ChIJM4lACLLazpQRpNrN1pO_HaD', nome: 'Serra do Mar', cidade: 'Cubatão', estado: 'São Paulo', uf: 'SP' },
 ]
 
 const descricoes = [
@@ -184,6 +185,23 @@ async function main() {
     where: { autor: { email: { endsWith: SEED_EMAIL_DOMAIN } } },
   })
   if (removidas.count > 0) console.log(`${removidas.count} reviews seed antigas removidas.`)
+
+  // Reviews point to Local, so the places come first.
+  await Promise.all(
+    locais.map(({ id, nome, cidade, estado, uf }) => {
+      const data = {
+        nome,
+        cidade,
+        estado,
+        sigla_estado: uf,
+        pais: 'Brasil',
+        sigla_pais: 'BR',
+        endereco: `${cidade} - ${uf}, Brasil`,
+      }
+      return prisma.local.upsert({ where: { place_id: id }, update: data, create: { place_id: id, ...data } })
+    }),
+  )
+  console.log(`${locais.length} locais seed garantidos.`)
 
   const tagRecords = await Promise.all(
     tags.map((descritivo) =>

@@ -7,5 +7,6 @@ import { PrismaModule } from '../prisma/prisma.module.js';
   imports: [PrismaModule],
   controllers: [LocalController],
   providers: [LocalService],
+  exports: [LocalService],
 })
 export class LocalModule {}

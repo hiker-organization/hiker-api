@@ -8,6 +8,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Matches,
   Max,
   MaxLength,
   Min,
@@ -18,6 +19,12 @@ export class CreateTrilhaDTO {
   @IsNotEmpty({ message: 'nome da trilha é obrigatório.' })
   @MaxLength(100, { message: 'limite máximo de caractéres: 100.' })
   public nome!: string;
+
+  // Google place id of the park, peak... where the trail was.
+  @IsString()
+  @IsNotEmpty({ message: 'local é obrigatório.' })
+  @Matches(/^[A-Za-z0-9_-]+$/, { message: 'local inválido.' })
+  public local_id!: string;
 
   @IsOptional()
   @IsString()

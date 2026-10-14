@@ -13,6 +13,7 @@ import { ValidationPipe, INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
+import { JwtService } from '@nestjs/jwt';
 
 /**
  * O handler de /auth/refresh recebia `@Body() refreshToken: string`, mas @Body()
@@ -29,7 +30,11 @@ describe('AuthController — contrato de /auth/refresh e /auth/logout', () => {
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
       controllers: [AuthController],
-      providers: [{ provide: AuthService, useValue: { refresh, logout } }],
+      providers: [
+        { provide: AuthService, useValue: { refresh, logout } },
+        // Needed by the AuthToken guard of /auth/google/link.
+        { provide: JwtService, useValue: {} },
+      ],
     }).compile();
 
     app = moduleRef.createNestApplication();

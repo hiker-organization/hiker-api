@@ -16,7 +16,7 @@ export class GetUsersDTO {
   @Max(50)
   limit?: number;
 
-  @IsIn(['id', 'nome_exibicao', 'email'], {
+  @IsIn(['id', 'nome_exibicao', 'email', 'banido', 'bloqueado'], {
     message: 'Campo de ordenação inválido.',
   })
   @IsOptional()
