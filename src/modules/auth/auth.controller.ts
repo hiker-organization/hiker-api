@@ -1,4 +1,9 @@
-import { Body, Controller, Post, Req, Res } from '@nestjs/common';
+import { Body, Controller, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { GoogleLoginDTO } from './dto/google-login.dto.js';
+import { GoogleRegisterDTO } from './dto/google-register.dto.js';
+import { AuthToken } from './guard/auth.guard.js';
+import { TokenPayloadParam } from './utils/param/token-payload.param.js';
+import { PayloadDTO } from './dto/payload.dto.js';
 import { AuthService } from './auth.service.js';
 import { LoginDTO } from './dto/login.dto.js';
 import { ForgotPasswordDTO } from './dto/forgot-password.dto.js';
@@ -16,6 +21,25 @@ export class AuthController {
   @Post('login')
   login(@Body() loginDto: LoginDTO) {
     return this.authService.login(loginDto);
+  }
+
+  @Post('google')
+  login_google(@Body() data: GoogleLoginDTO) {
+    return this.authService.login_google(data);
+  }
+
+  @Post('google/register')
+  register_google(@Body() data: GoogleRegisterDTO) {
+    return this.authService.register_google(data);
+  }
+
+  @UseGuards(AuthToken)
+  @Post('google/link')
+  link_google(
+    @Body() data: GoogleLoginDTO,
+    @TokenPayloadParam() token: PayloadDTO,
+  ) {
+    return this.authService.link_google(data, token);
   }
 
   @Post('web/login')

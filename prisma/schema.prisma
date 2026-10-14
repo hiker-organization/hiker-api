@@ -14,6 +14,8 @@ model Usuario {
   nome_exibicao           String
   email                   String      @unique
   senha                   String
+  // "sub" of the Google account linked to the user, for the Google sign-in.
+  google_id               String?     @unique
   data_nascimento         DateTime
   numero_celular          String
   foto_url                String?

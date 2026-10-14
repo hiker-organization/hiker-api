@@ -81,6 +81,8 @@ export class UserService {
         nome_exibicao: `Usuário desativado`,
         nome_usuario: suffix,
         numero_celular: suffix,
+        // Frees the Google account to sign up again.
+        google_id: null,
       },
     });
 

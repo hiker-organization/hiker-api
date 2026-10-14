@@ -64,6 +64,7 @@ export class UserValidator {
         data_nascimento: true,
         numero_celular: true,
         reputacao: true,
+        google_id: true,
         reviews: {
           where: { deletedAt: null },
           select: {
@@ -97,11 +98,14 @@ export class UserValidator {
       })),
     );
 
+    const { google_id, ...rest } = user;
     return {
-      ...user,
+      ...rest,
       foto_url: user.foto_url
         ? await this.uploadAzureService.getUserImageUrl(user.foto_url)
         : null,
+      // Only whether there is one; the Google account id is not exposed.
+      google_vinculado: google_id !== null,
       reviews,
     };
   }
