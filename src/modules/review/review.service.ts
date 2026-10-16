@@ -137,7 +137,9 @@ export class ReviewService {
 
   async favorite(id: number, token: PayloadDTO) {
     return await this.prisma.$transaction(async (fav) => {
-      const review = await fav.review.findUnique({ where: { id: id } });
+      const review = await fav.review.findUnique({
+        where: { id: id, status: { in: ['AUTORIZADA', 'ANALISE'] } },
+      });
       if (!review) throw new NotFoundException('Esta review não existe mais.');
 
       const verify = await fav.review_favorita.findUnique({
@@ -169,7 +171,9 @@ export class ReviewService {
 
   async unfavorite(id: number, token: PayloadDTO) {
     return await this.prisma.$transaction(async (fav) => {
-      const review = await fav.review.findUnique({ where: { id: id } });
+      const review = await fav.review.findUnique({
+        where: { id: id, status: { in: ['AUTORIZADA', 'ANALISE'] } },
+      });
       if (!review) throw new NotFoundException('Esta review não existe mais.');
 
       const verify = await fav.review_favorita.findUnique({
@@ -251,7 +255,12 @@ export class ReviewService {
       orderBy: {
         id: 'desc',
       },
-      where: { oculto: false, deletedAt: null, id_local: id },
+      where: {
+        oculto: false,
+        deletedAt: null,
+        id_local: id,
+        status: { in: ['AUTORIZADA', 'ANALISE'] },
+      },
       select: {
         id: true,
         descricao: true,
@@ -364,7 +373,7 @@ export class ReviewService {
 
     return await this.prisma.$transaction(async (lk) => {
       const review = await lk.review.findUnique({
-        where: { id: id },
+        where: { id: id, status: { in: ['AUTORIZADA', 'ANALISE'] } },
         select: { id_usuario: true },
       });
 
@@ -416,7 +425,7 @@ export class ReviewService {
 
     return await this.prisma.$transaction(async (dlk) => {
       const review = await dlk.review.findUnique({
-        where: { id: id },
+        where: { id: id, status: { in: ['AUTORIZADA', 'ANALISE'] } },
         select: { id_usuario: true },
       });
 
@@ -469,7 +478,7 @@ export class ReviewService {
     token: PayloadDTO,
   ) {
     const review = await this.prisma.review.findUnique({
-      where: { id: id },
+      where: { id: id, status: { in: ['AUTORIZADA', 'ANALISE'] } },
     });
 
     if (!review) throw new NotFoundException('Review não encontrada.');

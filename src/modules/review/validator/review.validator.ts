@@ -33,7 +33,8 @@ export class ReviewValidator {
     const prismaClient = tx || this.prisma;
 
     const reviews = await prismaClient.review.findMany({
-      where: { id_usuario: id_user },
+      where: { id_usuario: id_user, status: { in: ['AUTORIZADA', 'ANALISE'] } },
+
       select: {
         qnt_likes: true,
         qnt_dislikes: true,
@@ -56,7 +57,12 @@ export class ReviewValidator {
 
   async find_one_review_with_full_content(id: number, userId: number) {
     const review = await this.prisma.review.findUnique({
-      where: { id: id, oculto: false, deletedAt: null },
+      where: {
+        id: id,
+        oculto: false,
+        deletedAt: null,
+        status: { in: ['AUTORIZADA', 'ANALISE'] },
+      },
       select: {
         descricao: true,
         id_local: true,
@@ -153,7 +159,11 @@ export class ReviewValidator {
       orderBy: {
         id: 'desc',
       },
-      where: { oculto: false, deletedAt: null },
+      where: {
+        oculto: false,
+        deletedAt: null,
+        status: { in: ['AUTORIZADA', 'ANALISE'] },
+      },
       select: {
         id: true,
         descricao: true,
@@ -252,6 +262,7 @@ export class ReviewValidator {
       where: {
         oculto: false,
         deletedAt: null,
+        status: { in: ['AUTORIZADA', 'ANALISE'] },
         OR: [
           { local: { contains: search, mode: 'insensitive' } },
           {
@@ -341,7 +352,12 @@ export class ReviewValidator {
 
   async find_user_review(id: number, token: PayloadDTO) {
     const review = await this.prisma.review.findUnique({
-      where: { id: id, AND: { id_usuario: token.sub }, deletedAt: null },
+      where: {
+        id: id,
+        AND: { id_usuario: token.sub },
+        deletedAt: null,
+        status: { in: ['AUTORIZADA', 'ANALISE'] },
+      },
       select: {
         fotos: { select: { url: true } },
       },
@@ -352,7 +368,11 @@ export class ReviewValidator {
 
   async review_exists(id: number) {
     const review = await this.prisma.review.findUnique({
-      where: { id: id, AND: { deletedAt: null } },
+      where: {
+        id: id,
+        status: { in: ['AUTORIZADA', 'ANALISE'] },
+        AND: { deletedAt: null },
+      },
     });
     if (!review) throw new NotFoundException('Review não encontrada.');
     return review;
