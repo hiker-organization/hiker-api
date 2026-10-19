@@ -15,6 +15,17 @@ export class AdminValidator {
     return user;
   }
 
+  async verify_report(id: number) {
+    const report = await this.prisma.denuncia.findUnique({
+      where: { id: id },
+    });
+
+    if (!report)
+      throw new NotFoundException('A denúncia em questão não existe.');
+
+    return report;
+  }
+
   async get_users(page = 1, limit = 10, sortBy = 'id', order = 'asc') {
     const skip = (page - 1) * limit;
     const [users, total] = await Promise.all([
@@ -77,7 +88,11 @@ export class AdminValidator {
           id_usuario: true,
           autor: { select: { nome_usuario: true } },
           review: {
-            select: { autor: { select: { nome_usuario: true, id: true } } },
+            select: {
+              descricao: true,
+              createdAt: true,
+              autor: { select: { nome_usuario: true, id: true } },
+            },
           },
         },
       }),

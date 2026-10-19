@@ -69,7 +69,7 @@ export class UserValidator {
         reputacao: true,
         google_id: true,
         reviews: {
-          where: { deletedAt: null, status: { in: ['AUTORIZADA', 'ANALISE'] }, },
+          where: { deletedAt: null, status: { in: ['AUTORIZADA', 'ANALISE'] } },
           select: {
             id: true,
             oculto: true,
@@ -125,7 +125,11 @@ export class UserValidator {
         nome_usuario: true,
         reputacao: true,
         reviews: {
-          where: { oculto: false, deletedAt: null, status: { in: [ "AUTORIZADA", "ANALISE" ] } },
+          where: {
+            oculto: false,
+            deletedAt: null,
+            status: { in: ['AUTORIZADA', 'ANALISE'] },
+          },
           select: {
             id: true,
             fotos: { select: { url: true } },

@@ -204,7 +204,7 @@ export class ReviewService {
 
   async report(id: number, token: PayloadDTO, data: CreateReportDTO) {
     await this.globalValidator.verify_block(token);
-    await this.reviewValidator.review_exists(id);
+    const review = await this.reviewValidator.review_exists(id);
     await this.reviewValidator.review_reported(id, token.sub);
     return await this.prisma.$transaction(async (report) => {
       await report.denuncia.create({
@@ -215,6 +215,13 @@ export class ReviewService {
           id_review: id,
         },
       });
+
+      if (review.status === 'AUTORIZADA') {
+        await report.review.update({
+          where: { id: id },
+          data: { qnt_denuncia: { increment: 1 }, status: 'ANALISE' },
+        });
+      }
 
       await report.review.update({
         where: { id: id },

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, HttpStatus, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { PayloadDTO } from '../auth/dto/payload.dto.js';
 import { message_response } from '../../common/helpers/message-response.helper.js';
@@ -7,6 +7,7 @@ import { GetUsersDTO } from './utils/dto/query.dto.js';
 import { BlockDTO } from './utils/dto/block.dto.js';
 import { AdminValidator } from './utils/validator/admin.validator.js';
 import { GetReportsDTO } from './utils/dto/reports.dto.js';
+import { ModerateDTO } from './utils/dto/moderate.dto.js';
 
 @Injectable()
 export class AdminService {
@@ -40,6 +41,34 @@ export class AdminService {
       query.sortBy,
       query.order,
     );
+  }
+
+  async moderate(id: number, data: ModerateDTO) {
+    const report = await this.adminValidator.verify_report(id);
+    return this.prisma.$transaction(async (tx) => {
+      const result = await tx.denuncia.updateMany({
+        where: {
+          id: id,
+          status: { not: 'FECHADA' },
+        },
+        data: {
+          status: 'FECHADA',
+        },
+      });
+
+      if (result.count === 0) {
+        throw new ConflictException(
+          'Denúncia já foi finalizada, não é possível fazer uma ação.',
+        );
+      }
+
+      await tx.review.update({
+        where: { id: report.id_review },
+        data: { status: data.status },
+      });
+
+      return message_response('Denúncia finalizada.', HttpStatus.OK);
+    });
   }
 
   async show_user(nick: string) {

@@ -4,6 +4,8 @@ import {
   Delete,
   Get,
   Param,
+  ParseIntPipe,
+  Patch,
   Post,
   Put,
   Query,
@@ -20,6 +22,7 @@ import { GetUsersDTO } from './utils/dto/query.dto.js';
 import { BlockDTO } from './utils/dto/block.dto.js';
 import { GetReportsDTO } from './utils/dto/reports.dto.js';
 import { SkipThrottle } from '@nestjs/throttler';
+import { ModerateDTO } from './utils/dto/moderate.dto.js';
 
 @SkipThrottle({ auth: true })
 @Controller('admin')
@@ -44,6 +47,16 @@ export class AdminController {
   @Get('reports')
   show_reports(@Query() query: GetReportsDTO) {
     return this.service.reports(query);
+  }
+
+  @UseGuards(AuthToken, RolesGuard)
+  @Roles(Role.ADMIM)
+  @Patch(':id/moderation')
+  moredation(
+    @Param('id', ParseIntPipe) reportId: number,
+    @Body() data: ModerateDTO,
+  ) {
+    return this.service.moderate(reportId, data);
   }
 
   @UseGuards(AuthToken, RolesGuard)
