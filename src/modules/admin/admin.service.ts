@@ -40,6 +40,7 @@ export class AdminService {
       query.limit,
       query.sortBy,
       query.order,
+      query.status,
     );
   }
 
@@ -69,6 +70,20 @@ export class AdminService {
 
       return message_response('Denúncia finalizada.', HttpStatus.OK);
     });
+  }
+
+  async close_report(id: number) {
+    const report = await this.adminValidator.verify_report(id);
+
+    if (report.status === 'FECHADA')
+      throw new ConflictException('Esta denúncia já foi finalizada.');
+
+    await this.prisma.denuncia.update({
+      where: { id: id, id_review: report.id_review },
+      data: { status: 'FECHADA' },
+    });
+
+    return message_response('Denuncia fechada com sucesso.', HttpStatus.OK);
   }
 
   async show_user(nick: string) {

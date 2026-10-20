@@ -1,6 +1,7 @@
 import { IsIn, IsInt, IsOptional, Max, Min } from 'class-validator';
 import type { ordenation, sortReportsField } from '../enums/sorted.enum.js';
 import { Type } from 'class-transformer';
+import { Status_Denuncia } from '../../../../../generated/prisma/enums.js';
 
 export class GetReportsDTO {
   @IsOptional()
@@ -21,6 +22,12 @@ export class GetReportsDTO {
   })
   @IsOptional()
   sortBy?: sortReportsField;
+
+  @IsIn(['ATIVA', 'FECHADA'], {
+    message: 'Status inválido.',
+  })
+  @IsOptional()
+  status?: Status_Denuncia;
 
   @IsIn(['asc', 'desc'], { message: 'Campo de ordenação inválido.' })
   @IsOptional()

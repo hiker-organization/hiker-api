@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service.js';
+import { Status_Denuncia } from '../../../../../generated/prisma/enums.js';
 
 @Injectable()
 export class AdminValidator {
@@ -72,12 +73,14 @@ export class AdminValidator {
     limit = 10,
     sortBy = 'createdAt',
     order = 'desc',
+    status: Status_Denuncia = 'ATIVA',
   ) {
     const skip = (page - 1) * limit;
     const [reports, total] = await Promise.all([
       this.prisma.denuncia.findMany({
         skip,
         take: limit,
+        where: { status: status },
         orderBy: { [sortBy]: order },
         select: {
           id: true,
@@ -86,6 +89,7 @@ export class AdminValidator {
           createdAt: true,
           id_review: true,
           id_usuario: true,
+          status: true,
           autor: { select: { nome_usuario: true } },
           review: {
             select: {
@@ -96,7 +100,7 @@ export class AdminValidator {
           },
         },
       }),
-      this.prisma.denuncia.count(),
+      this.prisma.denuncia.count({ where: { status: status } }),
     ]);
 
     const meta = {
