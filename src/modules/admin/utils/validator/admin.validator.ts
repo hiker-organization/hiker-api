@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service.js';
+import { Status_Denuncia } from '../../../../../generated/prisma/enums.js';
 
 @Injectable()
 export class AdminValidator {
@@ -13,6 +14,17 @@ export class AdminValidator {
     if (!user) throw new NotFoundException('Usuário não encontrado.');
 
     return user;
+  }
+
+  async verify_report(id: number) {
+    const report = await this.prisma.denuncia.findUnique({
+      where: { id: id },
+    });
+
+    if (!report)
+      throw new NotFoundException('A denúncia em questão não existe.');
+
+    return report;
   }
 
   async get_users(page = 1, limit = 10, sortBy = 'id', order = 'asc') {
@@ -61,12 +73,14 @@ export class AdminValidator {
     limit = 10,
     sortBy = 'createdAt',
     order = 'desc',
+    status: Status_Denuncia = 'ATIVA',
   ) {
     const skip = (page - 1) * limit;
     const [reports, total] = await Promise.all([
       this.prisma.denuncia.findMany({
         skip,
         take: limit,
+        where: { status: status },
         orderBy: { [sortBy]: order },
         select: {
           id: true,
@@ -75,13 +89,18 @@ export class AdminValidator {
           createdAt: true,
           id_review: true,
           id_usuario: true,
+          status: true,
           autor: { select: { nome_usuario: true } },
           review: {
-            select: { autor: { select: { nome_usuario: true, id: true } } },
+            select: {
+              descricao: true,
+              createdAt: true,
+              autor: { select: { nome_usuario: true, id: true } },
+            },
           },
         },
       }),
-      this.prisma.denuncia.count(),
+      this.prisma.denuncia.count({ where: { status: status } }),
     ]);
 
     const meta = {
