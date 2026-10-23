@@ -69,6 +69,16 @@ export class AdminController {
 
   @UseGuards(AuthToken, RolesGuard)
   @Roles(Role.ADMIM)
+  @Get(':id/reports')
+  reports_review(
+    @Param('id', ParseIntPipe) reviewId: number,
+    @Query() query: GetReportsDTO,
+  ) {
+    return this.service.reports_review(reviewId, query);
+  }
+
+  @UseGuards(AuthToken, RolesGuard)
+  @Roles(Role.ADMIM)
   @Patch(':id/close')
   close_report(@Param('id', ParseIntPipe) reportId: number) {
     return this.service.close_report(reportId);

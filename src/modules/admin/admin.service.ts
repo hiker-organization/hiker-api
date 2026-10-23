@@ -1,4 +1,9 @@
-import { ConflictException, HttpStatus, Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  HttpStatus,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { PayloadDTO } from '../auth/dto/payload.dto.js';
 import { message_response } from '../../common/helpers/message-response.helper.js';
@@ -51,6 +56,19 @@ export class AdminService {
       query.limit,
       query.sortBy,
       query.order,
+    );
+  }
+
+  async reports_review(id: number, query: GetReportsDTO) {
+    const review = await this.prisma.review.findUnique({ where: { id: id } });
+    if (!review) throw new NotFoundException('Review não encontrada.');
+    return await this.adminValidator.get_review_reports(
+      id,
+      query.page,
+      query.limit,
+      query.sortBy,
+      query.order,
+      query.status,
     );
   }
 
