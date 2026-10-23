@@ -8,6 +8,7 @@ import { BlockDTO } from './utils/dto/block.dto.js';
 import { AdminValidator } from './utils/validator/admin.validator.js';
 import { GetReportsDTO } from './utils/dto/reports.dto.js';
 import { ModerateDTO } from './utils/dto/moderate.dto.js';
+import { GetReviewDTO } from './utils/dto/reviews.dto.js';
 
 @Injectable()
 export class AdminService {
@@ -41,6 +42,15 @@ export class AdminService {
       query.sortBy,
       query.order,
       query.status,
+    );
+  }
+
+  async reviews_reported(query: GetReviewDTO) {
+    return await this.adminValidator.get_reviews(
+      query.page,
+      query.limit,
+      query.sortBy,
+      query.order,
     );
   }
 

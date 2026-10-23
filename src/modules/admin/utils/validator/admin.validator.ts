@@ -119,6 +119,43 @@ export class AdminValidator {
     };
   }
 
+  async get_reviews(page = 1, limit = 10, sortBy = 'id', order = 'asc') {
+    const skip = (page - 1) * limit;
+    const [reviews, total] = await Promise.all([
+      this.prisma.review.findMany({
+        skip,
+        take: limit,
+        orderBy: { [sortBy]: order },
+        where: { deletedAt: null, denuncias: { some: { status: 'ATIVA' } } },
+        select: {
+          id: true,
+          autor: { select: { nome_usuario: true } },
+          descricao: true,
+          createdAt: true,
+          qnt_denuncia: true,
+          lugar: { select: { cidade: true, nome: true, sigla_estado: true } },
+          tags: { select: { tag: { select: { descritivo: true } } } },
+        },
+      }),
+      this.prisma.review.count({
+        where: { deletedAt: null, denuncias: { some: { status: 'ATIVA' } } },
+      }),
+    ]);
+
+    const meta = {
+      page,
+      limit,
+      total,
+      total_pages: Math.ceil(total / limit),
+    };
+
+    return {
+      data: reviews,
+      meta,
+      statusCode: 200,
+    };
+  }
+
   async get_user(nick: string) {
     const user = await this.prisma.usuario.findUnique({
       where: { nome_usuario: nick },
