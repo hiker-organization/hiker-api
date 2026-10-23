@@ -68,6 +68,11 @@ export class AdminService {
         data: { status: data.status },
       });
 
+      await tx.denuncia.updateMany({
+        where: { id_review: report.id_review },
+        data: { status: 'FECHADA' },
+      });
+
       return message_response('Denúncia finalizada.', HttpStatus.OK);
     });
   }
