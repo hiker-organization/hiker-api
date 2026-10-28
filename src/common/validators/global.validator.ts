@@ -49,7 +49,7 @@ export class GlobalValidator {
 
   async verify_block(token: PayloadDTO) {
     const user = await this.prisma.usuario.findUnique({
-      where: { email: token.email },
+      where: { id: token.sub },
     });
 
     if (user!.banido)
