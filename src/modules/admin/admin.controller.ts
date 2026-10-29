@@ -52,14 +52,14 @@ export class AdminController {
 
   @UseGuards(AuthToken, RolesGuard)
   @Roles(Role.ADMIM)
-  @Get('report/reviews')
+  @Get('reviews')
   show_reviews(@Query() query: GetReviewDTO) {
     return this.service.reviews_reported(query);
   }
 
   @UseGuards(AuthToken, RolesGuard)
   @Roles(Role.ADMIM)
-  @Patch(':id/moderation')
+  @Patch('report/:id/moderation')
   moredation(
     @Param('id', ParseIntPipe) reportId: number,
     @Body() data: ModerateDTO,
@@ -69,7 +69,7 @@ export class AdminController {
 
   @UseGuards(AuthToken, RolesGuard)
   @Roles(Role.ADMIM)
-  @Get(':id/reports')
+  @Get('review/:id/reports')
   reports_review(
     @Param('id', ParseIntPipe) reviewId: number,
     @Query() query: GetReportsDTO,
@@ -79,35 +79,35 @@ export class AdminController {
 
   @UseGuards(AuthToken, RolesGuard)
   @Roles(Role.ADMIM)
-  @Patch(':id/close')
+  @Patch('report/:id/close')
   close_report(@Param('id', ParseIntPipe) reportId: number) {
     return this.service.close_report(reportId);
   }
 
   @UseGuards(AuthToken, RolesGuard)
   @Roles(Role.ADMIM)
-  @Put(':nick/ban')
+  @Put('user/:nick/ban')
   ban(@Param('nick') nick: string) {
     return this.service.ban(nick);
   }
 
   @UseGuards(AuthToken, RolesGuard)
   @Roles(Role.ADMIM)
-  @Get(':nick')
+  @Get('user/:nick')
   show_user(@Param('nick') nick: string) {
     return this.service.show_user(nick);
   }
 
   @UseGuards(AuthToken, RolesGuard)
   @Roles(Role.ADMIM)
-  @Put(':nick/block')
+  @Put('user/:nick/block')
   block(@Param('nick') nick: string, @Body() data: BlockDTO) {
     return this.service.block(nick, data);
   }
 
   @UseGuards(AuthToken, RolesGuard)
   @Roles(Role.ADMIM)
-  @Delete(':nick/block')
+  @Delete('user/:nick/block')
   unblock(@Param('nick') nick: string) {
     return this.service.unblock(nick);
   }
