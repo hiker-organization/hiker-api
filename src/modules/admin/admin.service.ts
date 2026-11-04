@@ -28,7 +28,7 @@ export class AdminService {
       where: { id: token.sub },
     });
 
-    return message_response('Usuário setado com sucesso!', 200);
+    return message_response('Usuário setado com sucesso!');
   }
 
   async show_users(query: GetUsersDTO) {
@@ -101,7 +101,7 @@ export class AdminService {
         data: { status: 'FECHADA' },
       });
 
-      return message_response('Denúncia finalizada.', HttpStatus.OK);
+      return message_response('Denúncia finalizada.');
     });
   }
 
@@ -116,13 +116,13 @@ export class AdminService {
       data: { status: 'FECHADA' },
     });
 
-    return message_response('Denuncia fechada com sucesso.', HttpStatus.OK);
+    return message_response('Denuncia fechada com sucesso.');
   }
 
   async show_user(nick: string) {
     const user = await this.adminValidator.get_user(nick);
 
-    return get_response('Usuário encontrado.', user, 200);
+    return get_response('Usuário encontrado.', user);
   }
 
   async block(nick: string, data: BlockDTO) {
@@ -133,7 +133,7 @@ export class AdminService {
       where: { nome_usuario: user.nome_usuario },
     });
 
-    return message_response('Usuário bloqueado com sucesso.', 200);
+    return message_response('Usuário bloqueado com sucesso.');
   }
 
   async ban(nick: string) {
@@ -149,7 +149,7 @@ export class AdminService {
         where: { id_usuario: user.id },
       });
 
-      return message_response('Usuário banido com sucesso.', 200);
+      return message_response('Usuário banido com sucesso.');
     });
   }
 
@@ -161,6 +161,6 @@ export class AdminService {
       where: { nome_usuario: user.nome_usuario },
     });
 
-    return message_response('Usuário desbloqueado com sucesso.', 200);
+    return message_response('Usuário desbloqueado com sucesso.');
   }
 }

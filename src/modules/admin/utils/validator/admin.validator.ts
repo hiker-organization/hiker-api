@@ -64,7 +64,6 @@ export class AdminValidator {
     return {
       data: users,
       meta,
-      statusCode: 200,
     };
   }
 
@@ -115,7 +114,6 @@ export class AdminValidator {
     return {
       data: reports,
       meta,
-      statusCode: 200,
     };
   }
 
@@ -158,7 +156,6 @@ export class AdminValidator {
     return {
       data: reports,
       meta,
-      statusCode: 200,
     };
   }
 
@@ -195,7 +192,6 @@ export class AdminValidator {
     return {
       data: reviews,
       meta,
-      statusCode: 200,
     };
   }
 
