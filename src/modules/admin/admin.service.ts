@@ -137,14 +137,20 @@ export class AdminService {
   }
 
   async ban(nick: string) {
-    const user = await this.adminValidator.verify_user(nick);
+    return await this.prisma.$transaction(async (ban) => {
+      const user = await this.adminValidator.verify_user(nick);
 
-    await this.prisma.usuario.update({
-      data: { banido: true },
-      where: { nome_usuario: user.nome_usuario },
+      await ban.usuario.update({
+        data: { banido: true },
+        where: { nome_usuario: user.nome_usuario },
+      });
+
+      await ban.token_refresh.deleteMany({
+        where: { id_usuario: user.id },
+      });
+
+      return message_response('Usuário banido com sucesso.', 200);
     });
-
-    return message_response('Usuário banido com sucesso.', 200);
   }
 
   async unblock(nick: string) {

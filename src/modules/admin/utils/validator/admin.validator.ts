@@ -142,7 +142,7 @@ export class AdminValidator {
           id_review: true,
           id_usuario: true,
           status: true,
-          autor: { select: { nome_usuario: true } }
+          autor: { select: { nome_usuario: true } },
         },
       }),
       this.prisma.denuncia.count({ where: { status: status, id_review: id } }),

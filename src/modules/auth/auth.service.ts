@@ -279,9 +279,9 @@ export class AuthService {
       where: { id: stored.id_usuario },
     });
 
-    if (!user || user.deletedAt) {
+    if (!user || user.deletedAt || user.banido) {
       await this.prisma.token_refresh.delete({ where: { id: stored.id } });
-      throw new UnauthorizedException('Usuário não encontrado.');
+      throw new UnauthorizedException('Usuário não encontrado ou inválido.');
     }
 
     const newAccessToken = await this.jwtService.signAsync({
