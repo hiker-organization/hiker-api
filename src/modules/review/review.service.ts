@@ -490,6 +490,8 @@ export class ReviewService {
         'Você não tem permissão para alterar a visibilidade desta review.',
       );
 
+    if (!oculto) await this.globalValidator.verify_block(token);
+
     await this.prisma.review.update({
       where: { id: id },
       data: { oculto: oculto },
