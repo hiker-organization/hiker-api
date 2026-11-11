@@ -6,7 +6,6 @@ import {
   ForbiddenException,
   UnprocessableEntityException,
   ConflictException,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { LocalService } from '../local/local.service.js';
@@ -452,7 +451,7 @@ export class ReviewService {
       }
 
       if (old_interaction?.tipo == 'DISLIKE')
-        throw new UnauthorizedException('Você já realizou esta ação.');
+        throw new ConflictException('Você já descurtiu esta publicação.');
 
       if (old_interaction?.tipo == 'LIKE') {
         await dlk.voto_review.update({
