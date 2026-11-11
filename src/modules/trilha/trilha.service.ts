@@ -199,6 +199,7 @@ export class TrilhaService {
 
   async share_trilha(id: number, compartilhada: boolean, token: PayloadDTO) {
     await this.trilhaValidator.find_own_trilha_or_fail(id, token);
+    if (compartilhada) await this.globalValidator.verify_block(token);
 
     await this.prisma.trilha.update({
       where: { id },

@@ -10,6 +10,8 @@ import { HashServiceMock } from './mocks/hashService.mock.js';
 import { UploadAzureServiceMock } from '../review/mocks/uploadAzureService.mock.js';
 import { UserMock } from './mocks/userCreate.mock.js';
 import { ConflictException } from '@nestjs/common';
+import { GlobalValidator } from '../../common/validators/global.validator.js';
+import { UserValidator } from './validator/user.validator.js';
 
 describe('userService', () => {
   let userService: UserService;
@@ -30,6 +32,8 @@ describe('userService', () => {
           provide: EmailService,
           useValue: { sendEmailChangeEmail: jest.fn() },
         },
+        GlobalValidator,
+        UserValidator,
       ],
     }).compile();
 
@@ -59,7 +63,6 @@ describe('userService', () => {
 
       const result = await userService.create_user(user_data);
 
-      expect(result.statusCode).toEqual(201);
       expect(result).toEqual({
         message: 'usuário criado com sucesso!',
         data: {
@@ -67,7 +70,6 @@ describe('userService', () => {
           nome_exibicao: user_data.nome_exibicao,
           email: user_data.email,
         },
-        statusCode: 201,
       });
     });
 

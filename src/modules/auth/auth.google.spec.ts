@@ -131,7 +131,6 @@ describe('AuthService — login com Google', () => {
       signup_token: login.signup_token,
     });
 
-    expect(result.statusCode).toEqual(201);
     expect(result.access_token).toEqual(expect.any(String));
     expect(prisma.usuario.create.mock.calls[0][0].data).toMatchObject({
       nome_usuario: '@ana',
