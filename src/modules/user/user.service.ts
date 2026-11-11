@@ -61,11 +61,7 @@ export class UserService {
       },
     });
 
-    return create_response(
-      'usuário criado com sucesso!',
-      user,
-      HttpStatus.CREATED,
-    );
+    return create_response('usuário criado com sucesso!', user);
   }
 
   async delete_user(token: PayloadDTO) {
@@ -86,17 +82,17 @@ export class UserService {
       },
     });
 
-    return message_response('Conta desativada com sucesso.', 200);
+    return message_response('Conta desativada com sucesso.');
   }
 
   async get_user(nick: string, token: PayloadDTO) {
     const user = await this.userValidator.get_user_with_nick(nick, token.sub);
-    return get_response('Perfil do usuário abaixo', user, 200);
+    return get_response('Perfil do usuário abaixo', user);
   }
 
   async get_me(token: PayloadDTO) {
     const user = await this.userValidator.get_user_with_full_data(token.sub);
-    return get_response('Seu perfil abaixo', user, 200);
+    return get_response('Seu perfil abaixo', user);
   }
 
   async favorites(token: PayloadDTO, query: GetReviewsQueryDTO) {
@@ -224,16 +220,12 @@ export class UserService {
       },
     });
 
-    return create_response(
-      'Alterado com sucesso.',
-      {
-        ...updatedUser,
-        foto_url: updatedUser.foto_url
-          ? await this.uploadAzureService.getUserImageUrl(updatedUser.foto_url)
-          : null,
-      },
-      200,
-    );
+    return create_response('Alterado com sucesso.', {
+      ...updatedUser,
+      foto_url: updatedUser.foto_url
+        ? await this.uploadAzureService.getUserImageUrl(updatedUser.foto_url)
+        : null,
+    });
   }
 
   async request_email_change(data: RequestEmailChangeDTO, token: PayloadDTO) {
@@ -265,7 +257,6 @@ export class UserService {
 
     return message_response(
       'Enviamos um código de verificação para o seu e-mail atual.',
-      200,
     );
   }
 
@@ -292,11 +283,9 @@ export class UserService {
       }),
     ]);
 
-    return create_response(
-      'E-mail alterado com sucesso.',
-      { email: emailToken.novo_email },
-      200,
-    );
+    return create_response('E-mail alterado com sucesso.', {
+      email: emailToken.novo_email,
+    });
   }
 
   async update_password(data: UpdatePasswordDTO, token: PayloadDTO) {
@@ -313,6 +302,6 @@ export class UserService {
       data: { senha: hash },
     });
 
-    return message_response('Senha alterada com sucesso.', 200);
+    return message_response('Senha alterada com sucesso.');
   }
 }

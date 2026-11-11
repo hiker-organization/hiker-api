@@ -91,7 +91,6 @@ export class TrilhaService {
     return create_response(
       'Sua trilha foi registrada com sucesso.',
       await this.trilhaValidator.find_full_trilha(trilha.id),
-      HttpStatus.CREATED,
     );
   }
 
@@ -112,7 +111,7 @@ export class TrilhaService {
     const nextCursor = hasNextPage ? data[data.length - 1].id : null;
 
     return {
-      ...get_response('Suas trilhas', data, HttpStatus.OK),
+      ...get_response('Suas trilhas', data),
       nextCursor,
     };
   }
@@ -140,7 +139,7 @@ export class TrilhaService {
     const nextCursor = hasNextPage ? data[data.length - 1].id : null;
 
     return {
-      ...get_response('Trilhas do usuário', data, HttpStatus.OK),
+      ...get_response('Trilhas do usuário', data),
       nextCursor,
     };
   }
@@ -177,7 +176,7 @@ export class TrilhaService {
     );
 
     return {
-      ...get_response('Trilhas compartilhadas', result, HttpStatus.OK),
+      ...get_response('Trilhas compartilhadas', result),
       nextCursor,
     };
   }
@@ -191,11 +190,11 @@ export class TrilhaService {
       throw new NotFoundException('Trilha não encontrada.');
 
     // The owner id is internal; the app only needs to know if the viewer owns the trail.
-    return get_response(
-      'Trilha encontrada',
-      { ...trilha, id_usuario: undefined, dono: isOwner },
-      200,
-    );
+    return get_response('Trilha encontrada', {
+      ...trilha,
+      id_usuario: undefined,
+      dono: isOwner,
+    });
   }
 
   async share_trilha(id: number, compartilhada: boolean, token: PayloadDTO) {
@@ -210,7 +209,6 @@ export class TrilhaService {
       compartilhada
         ? 'Trilha compartilhada no feed.'
         : 'Trilha removida do feed.',
-      HttpStatus.OK,
     );
   }
 
@@ -223,6 +221,6 @@ export class TrilhaService {
       data: { deletedAt: new Date() },
     });
 
-    return message_response('Trilha excluída com sucesso.', HttpStatus.OK);
+    return message_response('Trilha excluída com sucesso.');
   }
 }

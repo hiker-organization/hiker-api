@@ -66,7 +66,7 @@ export class LocalService {
         endereco: p.structuredFormat?.secondaryText?.text ?? null,
       }));
 
-    return get_response('locais encontrados.', locais, HttpStatus.OK);
+    return get_response('locais encontrados.', locais);
   }
 
   // Places already reviewed, by name or city, ignoring case and accents. Only the ones
@@ -87,7 +87,7 @@ export class LocalService {
       ORDER BY total_reviews DESC, l.nome
       LIMIT ${MAX_SEARCH_RESULTS}`;
 
-    return get_response('locais encontrados.', locais, HttpStatus.OK);
+    return get_response('locais encontrados.', locais);
   }
 
   // Places that fail to load are left out, the cards just don't show their location.
@@ -106,7 +106,7 @@ export class LocalService {
     );
 
     const locais = [...cached, ...fetched.filter((local) => local !== null)];
-    return get_response('locais encontrados.', locais, HttpStatus.OK);
+    return get_response('locais encontrados.', locais);
   }
 
   // RF7: rating, number of reviews and most used labels of the place.
@@ -135,16 +135,12 @@ export class LocalService {
     });
     const names = new Map(tags.map((tag) => [tag.id, tag.descritivo]));
 
-    return get_response(
-      'Local encontrado',
-      {
-        ...local,
-        media_nota: stats._avg.nota,
-        total_reviews: stats._count._all,
-        tags: tagCounts.map((t) => names.get(t.id_tag)).filter(Boolean),
-      },
-      HttpStatus.OK,
-    );
+    return get_response('Local encontrado', {
+      ...local,
+      media_nota: stats._avg.nota,
+      total_reviews: stats._count._all,
+      tags: tagCounts.map((t) => names.get(t.id_tag)).filter(Boolean),
+    });
   }
 
   // Called when a review or trail is created: the first one saves the place, the next

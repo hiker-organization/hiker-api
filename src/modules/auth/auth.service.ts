@@ -54,7 +54,7 @@ export class AuthService {
 
   async login(loginDto: LoginDTO) {
     const user = await this.authValidator.login_logical(loginDto);
-    return this.issue_tokens(user, 'logado com sucesso.', HttpStatus.OK);
+    return this.issue_tokens(user, 'logado com sucesso.');
   }
 
   // Accounts linked to Google (by the Google sign-up or from the profile) enter without
@@ -69,7 +69,7 @@ export class AuthService {
     });
     if (linked) {
       await this.authValidator.verify_ban(linked.email);
-      return this.issue_tokens(linked, 'logado com sucesso.', HttpStatus.OK);
+      return this.issue_tokens(linked, 'logado com sucesso.');
     }
 
     if (await this.find_by_email(google.email)) {
@@ -147,7 +147,7 @@ export class AuthService {
       },
     });
 
-    return this.issue_tokens(user, 'Cadastro concluído.', HttpStatus.CREATED);
+    return this.issue_tokens(user, 'Cadastro concluído.');
   }
 
   // Lets an account created with the password enter with Google from then on.
@@ -156,7 +156,7 @@ export class AuthService {
     const user = await this.userValidator.find_user_or_fail(token.sub);
 
     if (user.google_id === google.google_id) {
-      return message_response('Sua conta Google já está vinculada.', 200);
+      return message_response('Sua conta Google já está vinculada.');
     }
     if (user.google_id) {
       throw new ConflictException(
@@ -182,7 +182,7 @@ export class AuthService {
       where: { id: user.id },
       data: { google_id: google.google_id, ...(foto_url && { foto_url }) },
     });
-    return message_response('Conta Google vinculada com sucesso.', 200);
+    return message_response('Conta Google vinculada com sucesso.');
   }
 
   private find_by_email(email: string) {
@@ -208,7 +208,6 @@ export class AuthService {
   private async issue_tokens(
     user: { id: number; cargo: string; email: string },
     message: string,
-    status: HttpStatus,
   ) {
     const accessToken = await this.jwtService.signAsync({
       sub: user.id,
@@ -234,7 +233,7 @@ export class AuthService {
       }),
     ]);
 
-    return login_response(message, accessToken, refreshToken, status);
+    return login_response(message, accessToken, refreshToken);
   }
 
   async login_web(loginDto: LoginDTO, res: Response) {
@@ -254,7 +253,7 @@ export class AuthService {
       path: '/',
     });
 
-    return message_response('Logado com sucesso', 200);
+    return message_response('Logado com sucesso');
   }
 
   async refresh(refreshToken: string) {
@@ -279,9 +278,9 @@ export class AuthService {
       where: { id: stored.id_usuario },
     });
 
-    if (!user || user.deletedAt) {
+    if (!user || user.deletedAt || user.banido) {
       await this.prisma.token_refresh.delete({ where: { id: stored.id } });
-      throw new UnauthorizedException('Usuário não encontrado.');
+      throw new UnauthorizedException('Usuário não encontrado ou inválido.');
     }
 
     const newAccessToken = await this.jwtService.signAsync({
@@ -311,7 +310,6 @@ export class AuthService {
       'token renovado com sucesso.',
       newAccessToken,
       newRefreshToken,
-      HttpStatus.OK,
     );
   }
 
@@ -337,7 +335,7 @@ export class AuthService {
       path: '/',
     });
 
-    return message_response('Token renovado com sucesso.', 200);
+    return message_response('Token renovado com sucesso.');
   }
 
   async logout(refreshToken: string) {
@@ -345,7 +343,7 @@ export class AuthService {
     await this.prisma.token_refresh.deleteMany({
       where: { token_hash: tokenHash },
     });
-    return message_response('Logout realizado com sucesso.', HttpStatus.OK);
+    return message_response('Logout realizado com sucesso.');
   }
 
   async logout_web(res: Response, req: Request) {
@@ -367,7 +365,7 @@ export class AuthService {
       path: '/',
     });
 
-    return message_response('Logout realizado com sucesso.', 200);
+    return message_response('Logout realizado com sucesso.');
   }
 
   async forgot_password(forgotPasswordDto: ForgotPasswordDTO) {
@@ -378,7 +376,6 @@ export class AuthService {
     if (!user) {
       return message_response(
         'Se existir uma conta com esse email, um link de recuperação será enviado.',
-        HttpStatus.OK,
       );
     }
 
@@ -398,7 +395,6 @@ export class AuthService {
 
     return message_response(
       'Se existir uma conta com esse email, um link de recuperação será enviado.',
-      HttpStatus.OK,
     );
   }
 
@@ -407,7 +403,7 @@ export class AuthService {
       verifyResetCodeDto.email,
       verifyResetCodeDto.token,
     );
-    return message_response('Código válido.', HttpStatus.OK);
+    return message_response('Código válido.');
   }
 
   async reset_password(resetPasswordDto: ResetPasswordDTO) {
@@ -429,6 +425,6 @@ export class AuthService {
       }),
     ]);
 
-    return message_response('Senha redefinida com sucesso!', HttpStatus.OK);
+    return message_response('Senha redefinida com sucesso!');
   }
 }

@@ -5,6 +5,8 @@ import {
   NotFoundException,
   ForbiddenException,
   UnprocessableEntityException,
+  ConflictException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { LocalService } from '../local/local.service.js';
@@ -124,14 +126,10 @@ export class ReviewService {
         })),
       );
 
-      return create_response(
-        'Sua review foi criada com sucesso.',
-        {
-          ...review,
-          fotos,
-        },
-        HttpStatus.CREATED,
-      );
+      return create_response('Sua review foi criada com sucesso.', {
+        ...review,
+        fotos,
+      });
     });
   }
 
@@ -165,7 +163,7 @@ export class ReviewService {
         data: { qnt_favoritos: { increment: 1 } },
       });
 
-      return message_response('Favoritada com sucesso.', 201);
+      return message_response('Favoritada com sucesso.');
     });
   }
 
@@ -198,7 +196,7 @@ export class ReviewService {
         data: { qnt_favoritos: { decrement: 1 } },
       });
 
-      return message_response('Removida com sucesso.', 200);
+      return message_response('Removida com sucesso.');
     });
   }
 
@@ -230,7 +228,6 @@ export class ReviewService {
 
       return message_response(
         'Denúncia realizada com sucesso, nossos administradores irão analisar.',
-        201,
       );
     });
   }
@@ -242,7 +239,7 @@ export class ReviewService {
         token.sub,
       );
     return {
-      ...get_response('reviews disponíveis', data, HttpStatus.OK),
+      ...get_response('reviews disponíveis', data),
       nextCursor,
     };
   }
@@ -347,7 +344,7 @@ export class ReviewService {
       id,
       token.sub,
     );
-    return get_response('review encontrada.', review, HttpStatus.OK);
+    return get_response('review encontrada.', review);
   }
 
   async search_reviews(
@@ -361,7 +358,7 @@ export class ReviewService {
       token.sub,
     );
     return {
-      ...get_response('reviews disponíveis', data, HttpStatus.OK),
+      ...get_response('reviews disponíveis', data),
       nextCursor,
     };
   }
@@ -372,7 +369,7 @@ export class ReviewService {
       where: { id: id },
       data: { deletedAt: new Date() },
     });
-    return message_response('Review excluída com sucesso.', HttpStatus.OK);
+    return message_response('Review excluída com sucesso.');
   }
 
   async like_review(id: number, token: PayloadDTO) {
@@ -403,9 +400,8 @@ export class ReviewService {
         });
       }
 
-      if (old_interaction?.tipo == 'LIKE') {
-        return message_response('Você já curtiu esta publicação.', 400);
-      }
+      if (old_interaction?.tipo == 'LIKE')
+        throw new ConflictException('Você já curtiu esta publicação.');
 
       if (old_interaction?.tipo == 'DISLIKE') {
         await lk.voto_review.update({
@@ -423,7 +419,7 @@ export class ReviewService {
 
       await this.reviewValidator.calc_reputation(review.id_usuario, lk);
 
-      return message_response('ação realizada com sucesso.', 200);
+      return message_response('ação realizada com sucesso.');
     });
   }
 
@@ -455,9 +451,8 @@ export class ReviewService {
         });
       }
 
-      if (old_interaction?.tipo == 'DISLIKE') {
-        return message_response('você já não curtiu a publicação.', 400);
-      }
+      if (old_interaction?.tipo == 'DISLIKE')
+        throw new UnauthorizedException('Você já realizou esta ação.');
 
       if (old_interaction?.tipo == 'LIKE') {
         await dlk.voto_review.update({
@@ -475,7 +470,7 @@ export class ReviewService {
 
       await this.reviewValidator.calc_reputation(review.id_usuario, dlk);
 
-      return message_response('ação realizada com sucesso.', 200);
+      return message_response('ação realizada com sucesso.');
     });
   }
 
@@ -500,9 +495,6 @@ export class ReviewService {
       data: { oculto: oculto },
     });
 
-    return message_response(
-      'Visibilidade da review alterada com sucesso.',
-      HttpStatus.OK,
-    );
+    return message_response('Visibilidade da review alterada com sucesso.');
   }
 }

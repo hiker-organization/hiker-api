@@ -1,4 +1,9 @@
-import { ConflictException, HttpStatus, Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  HttpStatus,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { PayloadDTO } from '../auth/dto/payload.dto.js';
 import { message_response } from '../../common/helpers/message-response.helper.js';
@@ -8,6 +13,7 @@ import { BlockDTO } from './utils/dto/block.dto.js';
 import { AdminValidator } from './utils/validator/admin.validator.js';
 import { GetReportsDTO } from './utils/dto/reports.dto.js';
 import { ModerateDTO } from './utils/dto/moderate.dto.js';
+import { GetReviewDTO } from './utils/dto/reviews.dto.js';
 
 @Injectable()
 export class AdminService {
@@ -22,7 +28,7 @@ export class AdminService {
       where: { id: token.sub },
     });
 
-    return message_response('Usuário setado com sucesso!', 200);
+    return message_response('Usuário setado com sucesso!');
   }
 
   async show_users(query: GetUsersDTO) {
@@ -36,6 +42,28 @@ export class AdminService {
 
   async reports(query: GetReportsDTO) {
     return await this.adminValidator.get_reports(
+      query.page,
+      query.limit,
+      query.sortBy,
+      query.order,
+      query.status,
+    );
+  }
+
+  async reviews_reported(query: GetReviewDTO) {
+    return await this.adminValidator.get_reviews(
+      query.page,
+      query.limit,
+      query.sortBy,
+      query.order,
+    );
+  }
+
+  async reports_review(id: number, query: GetReportsDTO) {
+    const review = await this.prisma.review.findUnique({ where: { id: id } });
+    if (!review) throw new NotFoundException('Review não encontrada.');
+    return await this.adminValidator.get_review_reports(
+      id,
       query.page,
       query.limit,
       query.sortBy,
@@ -68,7 +96,12 @@ export class AdminService {
         data: { status: data.status },
       });
 
-      return message_response('Denúncia finalizada.', HttpStatus.OK);
+      await tx.denuncia.updateMany({
+        where: { id_review: report.id_review },
+        data: { status: 'FECHADA' },
+      });
+
+      return message_response('Denúncia finalizada.');
     });
   }
 
@@ -83,13 +116,13 @@ export class AdminService {
       data: { status: 'FECHADA' },
     });
 
-    return message_response('Denuncia fechada com sucesso.', HttpStatus.OK);
+    return message_response('Denuncia fechada com sucesso.');
   }
 
   async show_user(nick: string) {
     const user = await this.adminValidator.get_user(nick);
 
-    return get_response('Usuário encontrado.', user, 200);
+    return get_response('Usuário encontrado.', user);
   }
 
   async block(nick: string, data: BlockDTO) {
@@ -100,18 +133,24 @@ export class AdminService {
       where: { nome_usuario: user.nome_usuario },
     });
 
-    return message_response('Usuário bloqueado com sucesso.', 200);
+    return message_response('Usuário bloqueado com sucesso.');
   }
 
   async ban(nick: string) {
-    const user = await this.adminValidator.verify_user(nick);
+    return await this.prisma.$transaction(async (ban) => {
+      const user = await this.adminValidator.verify_user(nick);
 
-    await this.prisma.usuario.update({
-      data: { banido: true },
-      where: { nome_usuario: user.nome_usuario },
+      await ban.usuario.update({
+        data: { banido: true },
+        where: { nome_usuario: user.nome_usuario },
+      });
+
+      await ban.token_refresh.deleteMany({
+        where: { id_usuario: user.id },
+      });
+
+      return message_response('Usuário banido com sucesso.');
     });
-
-    return message_response('Usuário banido com sucesso.', 200);
   }
 
   async unblock(nick: string) {
@@ -122,6 +161,6 @@ export class AdminService {
       where: { nome_usuario: user.nome_usuario },
     });
 
-    return message_response('Usuário desbloqueado com sucesso.', 200);
+    return message_response('Usuário desbloqueado com sucesso.');
   }
 }
