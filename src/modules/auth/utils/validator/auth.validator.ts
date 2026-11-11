@@ -34,8 +34,6 @@ export class AuthValidator {
       throw new UnauthorizedException('Email ou senha inválidos.');
     }
 
-    await this.verify_ban(user.email);
-
     const senhaIsValid = await this.hashService.compare(
       data.password,
       user.senha,
@@ -44,6 +42,8 @@ export class AuthValidator {
     if (!senhaIsValid) {
       throw new UnauthorizedException('Email ou senha inválidos.');
     }
+
+    await this.verify_ban(user.email);
 
     return user;
   }
