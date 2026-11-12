@@ -165,10 +165,12 @@ export class AdminService {
         data: { status: data.status },
       });
 
-      await tx.denuncia.updateMany({
-        where: { id_review: report.id_review },
-        data: { status: 'FECHADA' },
-      });
+      if (data.status === 'OFENSIVA') {
+        await tx.denuncia.updateMany({
+          where: { id_review: report.id_review },
+          data: { status: 'FECHADA' },
+        });
+      }
 
       return message_response('Denúncia finalizada.');
     });
@@ -197,7 +199,10 @@ export class AdminService {
   async block(nick: string, data: BlockDTO) {
     const user = await this.adminValidator.verify_user(nick);
 
-    if (user.banido) throw new ConflictException("Não é possível bloquear o usuário: ele já está banido.")
+    if (user.banido)
+      throw new ConflictException(
+        'Não é possível bloquear o usuário: ele já está banido.',
+      );
 
     await this.prisma.usuario.update({
       data: { bloqueado: true, bloqueado_ate: data.data },
