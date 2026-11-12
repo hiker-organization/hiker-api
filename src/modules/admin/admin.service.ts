@@ -1,6 +1,5 @@
 import {
   ConflictException,
-  HttpStatus,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -197,6 +196,8 @@ export class AdminService {
 
   async block(nick: string, data: BlockDTO) {
     const user = await this.adminValidator.verify_user(nick);
+
+    if (user.banido) throw new ConflictException("Não é possível bloquear o usuário: ele já está banido.")
 
     await this.prisma.usuario.update({
       data: { bloqueado: true, bloqueado_ate: data.data },
