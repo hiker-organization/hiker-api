@@ -217,8 +217,14 @@ export class AdminService {
       const user = await this.adminValidator.verify_user(nick);
 
       await ban.usuario.update({
-        data: { banido: true },
         where: { nome_usuario: user.nome_usuario },
+        data: {
+          banido: true,
+          ...(user.bloqueado && {
+            bloqueado: false,
+            bloqueado_ate: null,
+          }),
+        },
       });
 
       await ban.token_refresh.deleteMany({
