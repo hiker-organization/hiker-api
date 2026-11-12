@@ -24,6 +24,7 @@ import { GetReportsDTO } from './utils/dto/reports.dto.js';
 import { SkipThrottle } from '@nestjs/throttler';
 import { ModerateDTO } from './utils/dto/moderate.dto.js';
 import { GetReviewDTO } from './utils/dto/reviews.dto.js';
+import { SummaryDTO } from './utils/dto/summary.query.dto.js';
 
 @SkipThrottle({ auth: true })
 @Controller('admin')
@@ -108,15 +109,15 @@ export class AdminController {
   @UseGuards(AuthToken, RolesGuard)
   @Roles(Role.ADMIM)
   @Get('users/summary')
-  user_summary() {
-    return this.service.user_summary();
+  user_summary(@Query() query: SummaryDTO) {
+    return this.service.user_summary(query);
   }
 
   @UseGuards(AuthToken, RolesGuard)
   @Roles(Role.ADMIM)
   @Get('reviews/summary')
-  review_summary() {
-    return this.service.review_summary();
+  review_summary(@Query() query: SummaryDTO) {
+    return this.service.review_summary(query);
   }
 
   @UseGuards(AuthToken, RolesGuard)

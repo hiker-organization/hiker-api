@@ -13,6 +13,7 @@ import { AdminValidator } from './utils/validator/admin.validator.js';
 import { GetReportsDTO } from './utils/dto/reports.dto.js';
 import { ModerateDTO } from './utils/dto/moderate.dto.js';
 import { GetReviewDTO } from './utils/dto/reviews.dto.js';
+import { SummaryDTO } from './utils/dto/summary.query.dto.js';
 
 @Injectable()
 export class AdminService {
@@ -30,16 +31,39 @@ export class AdminService {
     return message_response('Usuário setado com sucesso!');
   }
 
-  async user_summary() {
+  async user_summary(query: SummaryDTO) {
+    const from = query.from ? query.from : new Date('2026-01-01T00:00:00.000Z');
+    const to = query.to ? query.to : new Date('2026-12-31T23:59:59.999Z');
     return await this.prisma.$transaction(async (tx) => {
-      const userCount = await tx.usuario.count({ where: { deletedAt: null } });
+      const userCount = await tx.usuario.count({
+        where: {
+          deletedAt: null,
+          AND: {
+            createdAt: { gte: from, lte: to },
+          },
+        },
+      });
 
       const usersBlocked = await tx.usuario.count({
-        where: { bloqueado: true },
+        where: {
+          bloqueado: true,
+          deletedAt: null,
+          AND: {
+            createdAt: { gte: from, lte: to },
+          },
+        },
       });
       const blockPercent = (usersBlocked / userCount) * 100;
 
-      const usersBanned = await tx.usuario.count({ where: { banido: true } });
+      const usersBanned = await tx.usuario.count({
+        where: {
+          banido: true,
+          deletedAt: null,
+          AND: {
+            createdAt: { gte: from, lte: to },
+          },
+        },
+      });
       const banPercent = (usersBanned / userCount) * 100;
 
       const commonCount = userCount - usersBanned - usersBlocked;
@@ -63,19 +87,38 @@ export class AdminService {
     });
   }
 
-  async review_summary() {
+  async review_summary(query: SummaryDTO) {
+    const from = query.from ? query.from : new Date('2026-01-01T00:00:00.000Z');
+    const to = query.to ? query.to : new Date('2026-12-31T23:59:59.999Z');
     return await this.prisma.$transaction(async (tx) => {
       const reviewsCount = await tx.review.count({
-        where: { deletedAt: null },
+        where: {
+          deletedAt: null,
+          AND: {
+            createdAt: { gte: from, lte: to },
+          },
+        },
       });
 
       const blockedReviews = await tx.review.count({
-        where: { status: 'OFENSIVA', AND: { deletedAt: null } },
+        where: {
+          status: 'OFENSIVA',
+          deletedAt: null,
+          AND: {
+            createdAt: { gte: from, lte: to },
+          },
+        },
       });
       const blockPercent = (blockedReviews / reviewsCount) * 100;
 
       const reportedReviews = await tx.review.count({
-        where: { denuncias: { some: { status: 'ATIVA' } } },
+        where: {
+          denuncias: { some: { status: 'ATIVA' } },
+          deletedAt: null,
+          AND: {
+            createdAt: { gte: from, lte: to },
+          },
+        },
       });
       const reportPercent = (reportedReviews / reviewsCount) * 100;
 
