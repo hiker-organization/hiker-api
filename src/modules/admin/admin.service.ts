@@ -31,6 +31,76 @@ export class AdminService {
     return message_response('Usuário setado com sucesso!');
   }
 
+  async user_summary() {
+    return await this.prisma.$transaction(async (tx) => {
+      const userCount = await tx.usuario.count({ where: { deletedAt: null } });
+
+      const usersBlocked = await tx.usuario.count({
+        where: { bloqueado: true },
+      });
+      const blockPercent = (usersBlocked / userCount) * 100;
+
+      const usersBanned = await tx.usuario.count({ where: { banido: true } });
+      const banPercent = (usersBanned / userCount) * 100;
+
+      const commonCount = userCount - usersBanned - usersBlocked;
+      const commonPercent = (commonCount / userCount) * 100;
+
+      return {
+        totalUsers: userCount,
+        banned: {
+          count: usersBanned,
+          percentage: banPercent,
+        },
+        blocked: {
+          count: usersBlocked,
+          percentage: blockPercent,
+        },
+        common: {
+          count: commonCount,
+          percentage: commonPercent,
+        },
+      };
+    });
+  }
+
+  async review_summary() {
+    return await this.prisma.$transaction(async (tx) => {
+      const reviewsCount = await tx.review.count({
+        where: { deletedAt: null },
+      });
+
+      const blockedReviews = await tx.review.count({
+        where: { status: 'OFENSIVA', AND: { deletedAt: null } },
+      });
+      const blockPercent = (blockedReviews / reviewsCount) * 100;
+
+      const reportedReviews = await tx.review.count({
+        where: { denuncias: { some: { status: 'ATIVA' } } },
+      });
+      const reportPercent = (reportedReviews / reviewsCount) * 100;
+
+      const commonCount = reviewsCount - blockedReviews - reportedReviews;
+      const commonPercent = (commonCount / reviewsCount) * 100;
+
+      return {
+        totalReviews: reviewsCount,
+        blocked: {
+          count: blockedReviews,
+          percentage: blockPercent,
+        },
+        reported: {
+          count: reportedReviews,
+          percentage: reportPercent,
+        },
+        common: {
+          count: commonCount,
+          percentage: commonPercent,
+        },
+      };
+    });
+  }
+
   async show_users(query: GetUsersDTO) {
     return await this.adminValidator.get_users(
       query.page,

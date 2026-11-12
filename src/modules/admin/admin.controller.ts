@@ -107,6 +107,20 @@ export class AdminController {
 
   @UseGuards(AuthToken, RolesGuard)
   @Roles(Role.ADMIM)
+  @Get('users/summary')
+  user_summary() {
+    return this.service.user_summary();
+  }
+
+  @UseGuards(AuthToken, RolesGuard)
+  @Roles(Role.ADMIM)
+  @Get('reviews/summary')
+  review_summary() {
+    return this.service.review_summary();
+  }
+
+  @UseGuards(AuthToken, RolesGuard)
+  @Roles(Role.ADMIM)
   @Delete('user/:nick/block')
   unblock(@Param('nick') nick: string) {
     return this.service.unblock(nick);
