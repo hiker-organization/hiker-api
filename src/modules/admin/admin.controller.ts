@@ -25,6 +25,7 @@ import { SkipThrottle } from '@nestjs/throttler';
 import { ModerateDTO } from './utils/dto/moderate.dto.js';
 import { GetReviewDTO } from './utils/dto/reviews.dto.js';
 import { SummaryDTO } from './utils/dto/summary.query.dto.js';
+import { RankedDTO } from './utils/dto/ranked.query.dto.js';
 
 @SkipThrottle({ auth: true })
 @Controller('admin')
@@ -111,6 +112,20 @@ export class AdminController {
   @Get('users/summary')
   user_summary(@Query() query: SummaryDTO) {
     return this.service.user_summary(query);
+  }
+
+  @UseGuards(AuthToken, RolesGuard)
+  @Roles(Role.ADMIM)
+  @Get('users/top-by-blocked-reviews')
+  users_block_reviews(@Query() query: RankedDTO) {
+    return this.service.blocked_reviews(query);
+  }
+
+  @UseGuards(AuthToken, RolesGuard)
+  @Roles(Role.ADMIM)
+  @Get('users/top-by-reports-received')
+  users_reports_received(@Query() query: RankedDTO) {
+    return;
   }
 
   @UseGuards(AuthToken, RolesGuard)

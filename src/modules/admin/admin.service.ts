@@ -14,6 +14,7 @@ import { GetReportsDTO } from './utils/dto/reports.dto.js';
 import { ModerateDTO } from './utils/dto/moderate.dto.js';
 import { GetReviewDTO } from './utils/dto/reviews.dto.js';
 import { SummaryDTO } from './utils/dto/summary.query.dto.js';
+import { RankedDTO } from './utils/dto/ranked.query.dto.js';
 
 @Injectable()
 export class AdminService {
@@ -29,6 +30,50 @@ export class AdminService {
     });
 
     return message_response('Usuário setado com sucesso!');
+  }
+
+  async blocked_reviews(query: RankedDTO) {
+    const limit = query.limit ? query.limit : 10;
+    const from = query.from ? query.from : new Date('2026-01-01T00:00:00.000Z');
+    const to = query.to ? query.to : new Date('2026-12-31T23:59:59.999Z');
+
+    const top = await this.prisma.usuario.findMany({
+      where: {
+        deletedAt: null,
+        AND: { createdAt: { gte: from, lte: to } },
+        reviews: {
+          some: { status: 'OFENSIVA', deletedAt: null },
+        },
+      },
+      take: limit,
+      select: {
+        id: true,
+        nome_exibicao: true,
+        nome_usuario: true,
+        email: true,
+        reputacao: true,
+        createdAt: true,
+        banido: true,
+        bloqueado: true,
+        _count: {
+          select: {
+            reviews: {
+              where: { status: 'OFENSIVA', deletedAt: null }
+            }
+          }
+        }
+      },
+    });
+
+    if (top.length === 0)
+      throw new NotFoundException('Nenhum usuário encontrado.');
+    
+    const data = top.map(({ _count, ...user }) => ({
+      ...user,
+      blocked_reviews: _count.reviews,
+    }));
+
+    return get_response('Usuários encontrados:', data);
   }
 
   async user_summary(query: SummaryDTO) {
