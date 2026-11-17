@@ -17,10 +17,13 @@ async function bootstrap() {
   );
   app.useGlobalInterceptors(new SuccessStatusInterceptor(app.get(Reflector)));
   app.use(cookieParser());
-  const origins = (process.env.FRONTEND_URL ?? '')
-    .split(',')
-    .map((o) => o.trim())
-    .filter(Boolean);
+  const origins = [
+    'https://hiker-manager-eqhmbmadbcfkdsgd.chilecentral-01.azurewebsites.net',
+    ...(process.env.FRONTEND_URL ?? '')
+      .split(',')
+      .map((o) => o.trim().replace(/\/$/, ''))
+      .filter(Boolean),
+  ];
 
   app.enableCors({
     origin: origins.includes('*') ? true : origins,
