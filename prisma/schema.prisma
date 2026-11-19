@@ -24,6 +24,10 @@ model Usuario {
   banido                  Boolean     @default(false)
   bloqueado               Boolean     @default(false)
   bloqueado_ate           DateTime?
+  // Version of the privacy policy the user accepted at sign-up, and when.
+  // Null for the accounts created before the policy existed.
+  politica_versao         String?
+  politica_aceita_em      DateTime?
   createdAt               DateTime    @default(now())
   updatedAt               DateTime    @updatedAt
   deletedAt               DateTime?

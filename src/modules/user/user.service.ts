@@ -22,6 +22,7 @@ import { ConfirmEmailChangeDTO } from './dtos/confirmEmailChange.dto.js';
 import { randomInt } from 'node:crypto';
 import { GlobalValidator } from '../../common/validators/global.validator.js';
 import { UserValidator } from './validator/user.validator.js';
+import { POLITICA_PRIVACIDADE_VERSAO } from '../../common/constants/politica-privacidade.constant.js';
 
 @Injectable()
 export class UserService {
@@ -34,7 +35,10 @@ export class UserService {
     private userValidator: UserValidator,
   ) {}
 
-  async create_user(data: CreateUserDTO, foto?: Express.Multer.File) {
+  async create_user(
+    { aceite_politica, ...data }: CreateUserDTO,
+    foto?: Express.Multer.File,
+  ) {
     await this.userValidator.email_empty_or_fail(data.email);
 
     await this.userValidator.numero_is_equal_fail(data.numero_celular);
@@ -53,7 +57,14 @@ export class UserService {
     }
 
     const user = await this.prisma.usuario.create({
-      data: { ...data, senha: hash, nome_usuario: nick },
+      data: {
+        ...data,
+        senha: hash,
+        nome_usuario: nick,
+        // The DTO only lets aceite_politica true through, the check is for direct calls.
+        politica_versao: aceite_politica ? POLITICA_PRIVACIDADE_VERSAO : null,
+        politica_aceita_em: aceite_politica ? new Date() : null,
+      },
       select: {
         nome_usuario: true,
         nome_exibicao: true,

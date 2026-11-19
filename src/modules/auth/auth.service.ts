@@ -25,6 +25,7 @@ import { GoogleRegisterDTO } from './dto/google-register.dto.js';
 import { PayloadDTO } from './dto/payload.dto.js';
 import { UserValidator } from '../user/validator/user.validator.js';
 import { UploadAzureService } from '../../common/services/upload.azure.service.js';
+import { POLITICA_PRIVACIDADE_VERSAO } from '../../common/constants/politica-privacidade.constant.js';
 
 type GoogleSignupPayload = {
   google_id: string;
@@ -141,6 +142,8 @@ export class AuthService {
         numero_celular: data.numero_celular,
         data_nascimento: data.data_nascimento,
         google_id: google.google_id,
+        politica_versao: POLITICA_PRIVACIDADE_VERSAO,
+        politica_aceita_em: new Date(),
         foto_url: google.foto
           ? await this.save_google_photo(google.foto)
           : null,

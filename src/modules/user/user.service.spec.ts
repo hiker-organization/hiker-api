@@ -12,6 +12,7 @@ import { UserMock } from './mocks/userCreate.mock.js';
 import { ConflictException } from '@nestjs/common';
 import { GlobalValidator } from '../../common/validators/global.validator.js';
 import { UserValidator } from './validator/user.validator.js';
+import { POLITICA_PRIVACIDADE_VERSAO } from '../../common/constants/politica-privacidade.constant.js';
 
 describe('userService', () => {
   let userService: UserService;
@@ -71,6 +72,24 @@ describe('userService', () => {
           email: user_data.email,
         },
       });
+    });
+
+    it('Should save the privacy policy version and when it was accepted.', async () => {
+      jest.spyOn(prismaService.usuario, 'findFirst').mockResolvedValue(null);
+      jest.spyOn(hashService, 'hash').mockResolvedValue('hash');
+      const create = jest
+        .spyOn(prismaService.usuario, 'create')
+        .mockResolvedValue({} as any);
+
+      await userService.create_user(UserMock);
+
+      const data = create.mock.calls[0][0].data as Record<string, unknown>;
+      expect(data).toMatchObject({
+        politica_versao: POLITICA_PRIVACIDADE_VERSAO,
+        politica_aceita_em: expect.any(Date),
+      });
+      // The flag is not a column of Usuario.
+      expect(data).not.toHaveProperty('aceite_politica');
     });
 
     it('Should not create user because nickname exists', async () => {
