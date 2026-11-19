@@ -7,4 +7,5 @@ export const UserMock: CreateUserDTO = {
   email: 'vv@gmail.com',
   numero_celular: '(14) 99882-2367',
   senha: 'euVictor@123',
+  aceite_politica: true,
 };

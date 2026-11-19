@@ -17,6 +17,7 @@ import { AuthValidator } from './utils/validator/auth.validator.js';
 import { GoogleAuthService } from './utils/google/google-auth.service.js';
 import { UserValidator } from '../user/validator/user.validator.js';
 import { UploadAzureService } from '../../common/services/upload.azure.service.js';
+import { POLITICA_PRIVACIDADE_VERSAO } from '../../common/constants/politica-privacidade.constant.js';
 
 const google = {
   google_id: 'g-123',
@@ -31,6 +32,7 @@ const signupFields = {
   senha: 'Senha@123',
   numero_celular: '11999999999',
   data_nascimento: new Date('2000-01-01'),
+  aceite_politica: true,
 };
 
 describe('AuthService — login com Google', () => {
@@ -138,6 +140,8 @@ describe('AuthService — login com Google', () => {
       senha: 'senha-hash',
       google_id: 'g-123',
       foto_url: 'user-1.jpg',
+      politica_versao: POLITICA_PRIVACIDADE_VERSAO,
+      politica_aceita_em: expect.any(Date),
     });
   });
 

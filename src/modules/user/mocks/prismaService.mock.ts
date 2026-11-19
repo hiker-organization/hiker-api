@@ -11,6 +11,12 @@ export const PrismaServiceMock = () => ({
   voto_review: {
     findMany: jest.fn(),
   },
+  review_favorita: {
+    findMany: jest.fn(),
+  },
+  denuncia: {
+    findMany: jest.fn(),
+  },
   review: {
     create: jest.fn(),
   },
