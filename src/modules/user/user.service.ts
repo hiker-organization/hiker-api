@@ -120,6 +120,8 @@ export class UserService {
       },
       orderBy: { createdAt: 'desc' },
       select: {
+        // The cursor is the favorite's id, the same field the cursor above filters on.
+        id: true,
         review: {
           select: {
             id: true,
@@ -152,7 +154,7 @@ export class UserService {
 
     const hasNextPage = reviews.length > limit;
     const data = hasNextPage ? reviews.slice(0, limit) : reviews;
-    const nextCursor = hasNextPage ? data[data.length - 1].review.id : null;
+    const nextCursor = hasNextPage ? data[data.length - 1].id : null;
 
     const favoriteIds = await this.globalValidator.favorited_reviews(
       reviews.map((review) => review.review.id),
@@ -169,8 +171,9 @@ export class UserService {
     );
 
     return {
+      // Same shape as the feed reviews, so the app reads both the same way.
       data: data.map((review) => ({
-        ...review,
+        ...review.review,
         liked: reactions.get(review.review.id) === 'LIKE',
         disliked: reactions.get(review.review.id) === 'DISLIKE',
         favorited: favoriteIds.has(review.review.id),

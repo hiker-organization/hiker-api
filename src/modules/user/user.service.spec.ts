@@ -146,4 +146,44 @@ describe('userService', () => {
       });
     });
   });
+
+  describe('favorites', () => {
+    const favorite = (id: number, reviewId: number) => ({
+      id,
+      review: {
+        id: reviewId,
+        descricao: 'boa trilha',
+        fotos: [{ url: 'f.jpg' }],
+        autor: { nome_usuario: '@ana', foto_url: null },
+      },
+    });
+
+    it('Should return the reviews in the feed shape, with the favorite id as the cursor.', async () => {
+      const favoritaFindMany = prismaService.review_favorita
+        .findMany as jest.Mock<any>;
+      favoritaFindMany
+        // The page: limit 1 plus one more, so there is a next page.
+        .mockResolvedValueOnce([favorite(7, 40), favorite(5, 30)])
+        // The favorited check of the page.
+        .mockResolvedValueOnce([{ id_review: 40 }, { id_review: 30 }]);
+      (prismaService.voto_review.findMany as jest.Mock<any>).mockResolvedValue(
+        [],
+      );
+      (prismaService.denuncia.findMany as jest.Mock<any>).mockResolvedValue([]);
+
+      const result = await userService.favorites({ sub: 1 } as any, {
+        limit: 1,
+      });
+
+      expect(result.nextCursor).toBe(7);
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0]).toMatchObject({
+        id: 40,
+        descricao: 'boa trilha',
+        favorited: true,
+        autor: { nome_usuario: '@ana' },
+      });
+      expect(result.data[0]).not.toHaveProperty('review');
+    });
+  });
 });
