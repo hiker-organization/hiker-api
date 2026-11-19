@@ -24,6 +24,8 @@ import { GetReportsDTO } from './utils/dto/reports.dto.js';
 import { SkipThrottle } from '@nestjs/throttler';
 import { ModerateDTO } from './utils/dto/moderate.dto.js';
 import { GetReviewDTO } from './utils/dto/reviews.dto.js';
+import { SummaryDTO } from './utils/dto/summary.query.dto.js';
+import { RankedDTO } from './utils/dto/ranked.query.dto.js';
 
 @SkipThrottle({ auth: true })
 @Controller('admin')
@@ -103,6 +105,34 @@ export class AdminController {
   @Put('user/:nick/block')
   block(@Param('nick') nick: string, @Body() data: BlockDTO) {
     return this.service.block(nick, data);
+  }
+
+  @UseGuards(AuthToken, RolesGuard)
+  @Roles(Role.ADMIM)
+  @Get('users/summary')
+  user_summary(@Query() query: SummaryDTO) {
+    return this.service.user_summary(query);
+  }
+
+  @UseGuards(AuthToken, RolesGuard)
+  @Roles(Role.ADMIM)
+  @Get('users/top-by-blocked-reviews')
+  users_block_reviews(@Query() query: RankedDTO) {
+    return this.service.blocked_reviews(query);
+  }
+
+  @UseGuards(AuthToken, RolesGuard)
+  @Roles(Role.ADMIM)
+  @Get('users/top-by-reports-received')
+  users_reports_received(@Query() query: RankedDTO) {
+    return;
+  }
+
+  @UseGuards(AuthToken, RolesGuard)
+  @Roles(Role.ADMIM)
+  @Get('reviews/summary')
+  review_summary(@Query() query: SummaryDTO) {
+    return this.service.review_summary(query);
   }
 
   @UseGuards(AuthToken, RolesGuard)
