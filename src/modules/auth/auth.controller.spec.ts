@@ -14,6 +14,7 @@ import request from 'supertest';
 import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { JwtService } from '@nestjs/jwt';
+import { PrismaService } from '../prisma/prisma.service.js';
 
 /**
  * O handler de /auth/refresh recebia `@Body() refreshToken: string`, mas @Body()
@@ -34,6 +35,7 @@ describe('AuthController — contrato de /auth/refresh e /auth/logout', () => {
         { provide: AuthService, useValue: { refresh, logout } },
         // Needed by the AuthToken guard of /auth/google/link.
         { provide: JwtService, useValue: {} },
+        { provide: PrismaService, useValue: {} },
       ],
     }).compile();
 

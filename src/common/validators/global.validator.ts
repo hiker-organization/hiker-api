@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../modules/prisma/prisma.service.js';
 import { PayloadDTO } from '../../modules/auth/dto/payload.dto.js';
 
@@ -49,16 +49,16 @@ export class GlobalValidator {
 
   async verify_block(token: PayloadDTO) {
     const user = await this.prisma.usuario.findUnique({
-      where: { email: token.email },
+      where: { id: token.sub },
     });
 
     if (user!.banido)
-      throw new UnauthorizedException(
+      throw new ForbiddenException(
         'Você está banido, não poderá mais acessar nossos recursos.',
       );
 
     if (user!.bloqueado && user!.bloqueado_ate! > new Date())
-      throw new UnauthorizedException(
+      throw new ForbiddenException(
         'Você está bloqueado, não poderá realizar esta ação.',
       );
   }

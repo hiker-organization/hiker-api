@@ -43,6 +43,7 @@ model Review {
   id_usuario      Int
   id_local        String
   local           String
+  status          Status_Review         @default(AUTORIZADA)
   qnt_likes       Int         @default(0)
   qnt_dislikes    Int         @default(0)
   qnt_denuncia    Int         @default(0)
@@ -227,6 +228,7 @@ model Denuncia {
   id         Int        @id            @default(autoincrement())
   categoria  String
   descricao  String?
+  status     Status_Denuncia          @default(ATIVA)
   createdAt  DateTime   @default(now())
 
   autor      Usuario    @relation(fields: [id_usuario], references: [id], onDelete: Cascade, onUpdate: Cascade)
@@ -251,6 +253,17 @@ model Token_refresh {
 enum Role {
   USER
   ADM
+}
+
+enum Status_Review {
+  AUTORIZADA
+  ANALISE
+  OFENSIVA
+}
+
+enum Status_Denuncia {
+  ATIVA
+  FECHADA
 }
 
 enum Tipo_voto {

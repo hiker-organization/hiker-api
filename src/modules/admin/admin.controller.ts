@@ -4,6 +4,8 @@ import {
   Delete,
   Get,
   Param,
+  ParseIntPipe,
+  Patch,
   Post,
   Put,
   Query,
@@ -20,6 +22,10 @@ import { GetUsersDTO } from './utils/dto/query.dto.js';
 import { BlockDTO } from './utils/dto/block.dto.js';
 import { GetReportsDTO } from './utils/dto/reports.dto.js';
 import { SkipThrottle } from '@nestjs/throttler';
+import { ModerateDTO } from './utils/dto/moderate.dto.js';
+import { GetReviewDTO } from './utils/dto/reviews.dto.js';
+import { SummaryDTO } from './utils/dto/summary.query.dto.js';
+import { RankedDTO } from './utils/dto/ranked.query.dto.js';
 
 @SkipThrottle({ auth: true })
 @Controller('admin')
@@ -48,28 +54,90 @@ export class AdminController {
 
   @UseGuards(AuthToken, RolesGuard)
   @Roles(Role.ADMIM)
-  @Put(':nick/ban')
+  @Get('reviews')
+  show_reviews(@Query() query: GetReviewDTO) {
+    return this.service.reviews_reported(query);
+  }
+
+  @UseGuards(AuthToken, RolesGuard)
+  @Roles(Role.ADMIM)
+  @Patch('report/:id/moderation')
+  moredation(
+    @Param('id', ParseIntPipe) reportId: number,
+    @Body() data: ModerateDTO,
+  ) {
+    return this.service.moderate(reportId, data);
+  }
+
+  @UseGuards(AuthToken, RolesGuard)
+  @Roles(Role.ADMIM)
+  @Get('review/:id/reports')
+  reports_review(
+    @Param('id', ParseIntPipe) reviewId: number,
+    @Query() query: GetReportsDTO,
+  ) {
+    return this.service.reports_review(reviewId, query);
+  }
+
+  @UseGuards(AuthToken, RolesGuard)
+  @Roles(Role.ADMIM)
+  @Patch('report/:id/close')
+  close_report(@Param('id', ParseIntPipe) reportId: number) {
+    return this.service.close_report(reportId);
+  }
+
+  @UseGuards(AuthToken, RolesGuard)
+  @Roles(Role.ADMIM)
+  @Put('user/:nick/ban')
   ban(@Param('nick') nick: string) {
     return this.service.ban(nick);
   }
 
   @UseGuards(AuthToken, RolesGuard)
   @Roles(Role.ADMIM)
-  @Get(':nick')
+  @Get('user/:nick')
   show_user(@Param('nick') nick: string) {
     return this.service.show_user(nick);
   }
 
   @UseGuards(AuthToken, RolesGuard)
   @Roles(Role.ADMIM)
-  @Put(':nick/block')
+  @Put('user/:nick/block')
   block(@Param('nick') nick: string, @Body() data: BlockDTO) {
     return this.service.block(nick, data);
   }
 
   @UseGuards(AuthToken, RolesGuard)
   @Roles(Role.ADMIM)
-  @Delete(':nick/block')
+  @Get('users/summary')
+  user_summary(@Query() query: SummaryDTO) {
+    return this.service.user_summary(query);
+  }
+
+  @UseGuards(AuthToken, RolesGuard)
+  @Roles(Role.ADMIM)
+  @Get('users/top-by-blocked-reviews')
+  users_block_reviews(@Query() query: RankedDTO) {
+    return this.service.blocked_reviews(query);
+  }
+
+  @UseGuards(AuthToken, RolesGuard)
+  @Roles(Role.ADMIM)
+  @Get('users/top-by-reports-received')
+  users_reports_received(@Query() query: RankedDTO) {
+    return;
+  }
+
+  @UseGuards(AuthToken, RolesGuard)
+  @Roles(Role.ADMIM)
+  @Get('reviews/summary')
+  review_summary(@Query() query: SummaryDTO) {
+    return this.service.review_summary(query);
+  }
+
+  @UseGuards(AuthToken, RolesGuard)
+  @Roles(Role.ADMIM)
+  @Delete('user/:nick/block')
   unblock(@Param('nick') nick: string) {
     return this.service.unblock(nick);
   }

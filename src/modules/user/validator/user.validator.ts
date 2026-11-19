@@ -55,7 +55,10 @@ export class UserValidator {
 
   async get_user_with_full_data(id: number) {
     const user = await this.prisma.usuario.findUnique({
-      where: { id: id, deletedAt: null },
+      where: {
+        id: id,
+        deletedAt: null,
+      },
       select: {
         foto_url: true,
         nome_exibicao: true,
@@ -66,7 +69,7 @@ export class UserValidator {
         reputacao: true,
         google_id: true,
         reviews: {
-          where: { deletedAt: null },
+          where: { deletedAt: null, status: { in: ['AUTORIZADA', 'ANALISE'] } },
           select: {
             id: true,
             oculto: true,
@@ -112,14 +115,21 @@ export class UserValidator {
 
   async get_user_with_nick(nick: string, viewerId: number) {
     const user = await this.prisma.usuario.findFirst({
-      where: { nome_usuario: nick, deletedAt: null },
+      where: {
+        nome_usuario: nick,
+        deletedAt: null,
+      },
       select: {
         foto_url: true,
         nome_exibicao: true,
         nome_usuario: true,
         reputacao: true,
         reviews: {
-          where: { oculto: false, deletedAt: null },
+          where: {
+            oculto: false,
+            deletedAt: null,
+            status: { in: ['AUTORIZADA', 'ANALISE'] },
+          },
           select: {
             id: true,
             fotos: { select: { url: true } },

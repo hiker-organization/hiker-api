@@ -8,6 +8,8 @@ import { UploadAzureServiceMock } from './mocks/uploadAzureService.mock.js';
 import { ReviewMock } from './mocks/reviewCreate.mock.js';
 import { UploadAzureService } from '../../common/services/upload.azure.service.js';
 import { LocalService } from '../local/local.service.js';
+import { GlobalValidator } from '../../common/validators/global.validator.js';
+import { ReviewValidator } from './validator/review.validator.js';
 
 describe('ReviewService', () => {
   let reviewService: ReviewService;
@@ -25,6 +27,8 @@ describe('ReviewService', () => {
         { provide: PrismaService, useValue: PrismaServiceMock() },
         { provide: UploadAzureService, useValue: UploadAzureServiceMock() },
         { provide: LocalService, useValue: localService },
+        GlobalValidator,
+        ReviewValidator,
       ],
     }).compile();
 
@@ -76,7 +80,6 @@ describe('ReviewService', () => {
         .mockResolvedValue({ id: 1 } as any);
 
       const result = await reviewService.create_review(review_data, token);
-      expect(result.statusCode).toEqual(201);
       expect(result).toEqual({
         message: 'Sua review foi criada com sucesso.',
         data: {
@@ -91,7 +94,6 @@ describe('ReviewService', () => {
           // oculto: review_data.oculto,
           // tags: review_data.tags,
         },
-        statusCode: 201,
       });
       expect(localService.ensure_local).toHaveBeenCalledWith(
         review_data.local_id,

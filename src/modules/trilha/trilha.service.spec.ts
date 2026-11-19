@@ -7,6 +7,8 @@ import { UploadAzureService } from '../../common/services/upload.azure.service.j
 import { UploadAzureServiceMock } from '../review/mocks/uploadAzureService.mock.js';
 import { CreateTrilhaDTO } from './dtos/create-trilha.dto.js';
 import { LocalService } from '../local/local.service.js';
+import { GlobalValidator } from '../../common/validators/global.validator.js';
+import { TrilhaValidator } from './utils/validator/trilha.validator.js';
 
 const token = {
   sub: 1,
@@ -82,6 +84,8 @@ describe('TrilhaService', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: UploadAzureService, useValue: upload },
         { provide: LocalService, useValue: localService },
+        GlobalValidator,
+        TrilhaValidator,
       ],
     }).compile();
 
@@ -103,7 +107,6 @@ describe('TrilhaService', () => {
       token,
     );
 
-    expect(result.statusCode).toEqual(201);
     const created = prisma.trilha.create.mock.calls[0][0].data;
     expect(created.id_usuario).toEqual(1);
     expect(created.id_local).toEqual('park1');

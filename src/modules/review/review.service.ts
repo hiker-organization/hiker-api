@@ -5,6 +5,7 @@ import {
   NotFoundException,
   ForbiddenException,
   UnprocessableEntityException,
+  ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { LocalService } from '../local/local.service.js';
@@ -124,20 +125,18 @@ export class ReviewService {
         })),
       );
 
-      return create_response(
-        'Sua review foi criada com sucesso.',
-        {
-          ...review,
-          fotos,
-        },
-        HttpStatus.CREATED,
-      );
+      return create_response('Sua review foi criada com sucesso.', {
+        ...review,
+        fotos,
+      });
     });
   }
 
   async favorite(id: number, token: PayloadDTO) {
     return await this.prisma.$transaction(async (fav) => {
-      const review = await fav.review.findUnique({ where: { id: id } });
+      const review = await fav.review.findUnique({
+        where: { id: id, status: { in: ['AUTORIZADA', 'ANALISE'] } },
+      });
       if (!review) throw new NotFoundException('Esta review não existe mais.');
 
       const verify = await fav.review_favorita.findUnique({
@@ -163,13 +162,15 @@ export class ReviewService {
         data: { qnt_favoritos: { increment: 1 } },
       });
 
-      return message_response('Favoritada com sucesso.', 201);
+      return message_response('Favoritada com sucesso.');
     });
   }
 
   async unfavorite(id: number, token: PayloadDTO) {
     return await this.prisma.$transaction(async (fav) => {
-      const review = await fav.review.findUnique({ where: { id: id } });
+      const review = await fav.review.findUnique({
+        where: { id: id, status: { in: ['AUTORIZADA', 'ANALISE'] } },
+      });
       if (!review) throw new NotFoundException('Esta review não existe mais.');
 
       const verify = await fav.review_favorita.findUnique({
@@ -194,13 +195,13 @@ export class ReviewService {
         data: { qnt_favoritos: { decrement: 1 } },
       });
 
-      return message_response('Removida com sucesso.', 200);
+      return message_response('Removida com sucesso.');
     });
   }
 
   async report(id: number, token: PayloadDTO, data: CreateReportDTO) {
     await this.globalValidator.verify_block(token);
-    await this.reviewValidator.review_exists(id);
+    const review = await this.reviewValidator.review_exists(id);
     await this.reviewValidator.review_reported(id, token.sub);
     return await this.prisma.$transaction(async (report) => {
       await report.denuncia.create({
@@ -212,6 +213,13 @@ export class ReviewService {
         },
       });
 
+      if (review.status === 'AUTORIZADA') {
+        await report.review.update({
+          where: { id: id },
+          data: { qnt_denuncia: { increment: 1 }, status: 'ANALISE' },
+        });
+      }
+
       await report.review.update({
         where: { id: id },
         data: { qnt_denuncia: { increment: 1 } },
@@ -219,7 +227,6 @@ export class ReviewService {
 
       return message_response(
         'Denúncia realizada com sucesso, nossos administradores irão analisar.',
-        201,
       );
     });
   }
@@ -231,7 +238,7 @@ export class ReviewService {
         token.sub,
       );
     return {
-      ...get_response('reviews disponíveis', data, HttpStatus.OK),
+      ...get_response('reviews disponíveis', data),
       nextCursor,
     };
   }
@@ -251,7 +258,12 @@ export class ReviewService {
       orderBy: {
         id: 'desc',
       },
-      where: { oculto: false, deletedAt: null, id_local: id },
+      where: {
+        oculto: false,
+        deletedAt: null,
+        id_local: id,
+        status: { in: ['AUTORIZADA', 'ANALISE'] },
+      },
       select: {
         id: true,
         descricao: true,
@@ -331,7 +343,7 @@ export class ReviewService {
       id,
       token.sub,
     );
-    return get_response('review encontrada.', review, HttpStatus.OK);
+    return get_response('review encontrada.', review);
   }
 
   async search_reviews(
@@ -345,7 +357,7 @@ export class ReviewService {
       token.sub,
     );
     return {
-      ...get_response('reviews disponíveis', data, HttpStatus.OK),
+      ...get_response('reviews disponíveis', data),
       nextCursor,
     };
   }
@@ -356,7 +368,7 @@ export class ReviewService {
       where: { id: id },
       data: { deletedAt: new Date() },
     });
-    return message_response('Review excluída com sucesso.', HttpStatus.OK);
+    return message_response('Review excluída com sucesso.');
   }
 
   async like_review(id: number, token: PayloadDTO) {
@@ -364,7 +376,7 @@ export class ReviewService {
 
     return await this.prisma.$transaction(async (lk) => {
       const review = await lk.review.findUnique({
-        where: { id: id },
+        where: { id: id, status: { in: ['AUTORIZADA', 'ANALISE'] } },
         select: { id_usuario: true },
       });
 
@@ -387,9 +399,8 @@ export class ReviewService {
         });
       }
 
-      if (old_interaction?.tipo == 'LIKE') {
-        return message_response('Você já curtiu esta publicação.', 400);
-      }
+      if (old_interaction?.tipo == 'LIKE')
+        throw new ConflictException('Você já curtiu esta publicação.');
 
       if (old_interaction?.tipo == 'DISLIKE') {
         await lk.voto_review.update({
@@ -407,7 +418,7 @@ export class ReviewService {
 
       await this.reviewValidator.calc_reputation(review.id_usuario, lk);
 
-      return message_response('ação realizada com sucesso.', 200);
+      return message_response('ação realizada com sucesso.');
     });
   }
 
@@ -416,7 +427,7 @@ export class ReviewService {
 
     return await this.prisma.$transaction(async (dlk) => {
       const review = await dlk.review.findUnique({
-        where: { id: id },
+        where: { id: id, status: { in: ['AUTORIZADA', 'ANALISE'] } },
         select: { id_usuario: true },
       });
 
@@ -439,9 +450,8 @@ export class ReviewService {
         });
       }
 
-      if (old_interaction?.tipo == 'DISLIKE') {
-        return message_response('você já não curtiu a publicação.', 400);
-      }
+      if (old_interaction?.tipo == 'DISLIKE')
+        throw new ConflictException('Você já descurtiu esta publicação.');
 
       if (old_interaction?.tipo == 'LIKE') {
         await dlk.voto_review.update({
@@ -459,7 +469,7 @@ export class ReviewService {
 
       await this.reviewValidator.calc_reputation(review.id_usuario, dlk);
 
-      return message_response('ação realizada com sucesso.', 200);
+      return message_response('ação realizada com sucesso.');
     });
   }
 
@@ -469,7 +479,7 @@ export class ReviewService {
     token: PayloadDTO,
   ) {
     const review = await this.prisma.review.findUnique({
-      where: { id: id },
+      where: { id: id, status: { in: ['AUTORIZADA', 'ANALISE'] } },
     });
 
     if (!review) throw new NotFoundException('Review não encontrada.');
@@ -479,14 +489,13 @@ export class ReviewService {
         'Você não tem permissão para alterar a visibilidade desta review.',
       );
 
+    if (!oculto) await this.globalValidator.verify_block(token);
+
     await this.prisma.review.update({
       where: { id: id },
       data: { oculto: oculto },
     });
 
-    return message_response(
-      'Visibilidade da review alterada com sucesso.',
-      HttpStatus.OK,
-    );
+    return message_response('Visibilidade da review alterada com sucesso.');
   }
 }
