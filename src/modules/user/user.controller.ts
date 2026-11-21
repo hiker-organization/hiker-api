@@ -25,6 +25,7 @@ import { RequestEmailChangeDTO } from './dtos/requestEmailChange.dto.js';
 import { ConfirmEmailChangeDTO } from './dtos/confirmEmailChange.dto.js';
 import { SkipThrottle } from '@nestjs/throttler';
 import { GetReviewsQueryDTO } from '../review/dtos/get-reviews-query.dto.js';
+import { BuscaQueryDTO } from '../../common/dtos/busca-query.dto.js';
 
 @SkipThrottle({ auth: true })
 @Controller('user')
@@ -128,6 +129,13 @@ export class UserController {
     @TokenPayloadParam() token: PayloadDTO,
   ) {
     return this.service.confirm_email_change(data, token);
+  }
+
+  // Search page. Before ':nick' so "buscar" isn't taken as a nick.
+  @UseGuards(AuthToken)
+  @Get('buscar')
+  buscar(@Query() query: BuscaQueryDTO) {
+    return this.service.buscar(query);
   }
 
   @UseGuards(AuthToken)

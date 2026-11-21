@@ -71,7 +71,7 @@ export class LocalService {
 
   // Places already reviewed, by name or city, ignoring case and accents. Only the ones
   // with at least one visible review, the most reviewed first.
-  async buscar(q: string) {
+  async buscar(q: string, limit = MAX_SEARCH_RESULTS, offset = 0) {
     const termo = `%${escape_like(q.trim())}%`;
     const locais = await this.prisma.$queryRaw<LocalBusca[]>`
       SELECT l.place_id, l.nome, l.cidade, l.estado, l.sigla_estado, l.pais,
@@ -84,8 +84,8 @@ export class LocalService {
       WHERE unaccent(l.nome) ILIKE unaccent(${termo})
          OR unaccent(l.cidade) ILIKE unaccent(${termo})
       GROUP BY l.place_id
-      ORDER BY total_reviews DESC, l.nome
-      LIMIT ${MAX_SEARCH_RESULTS}`;
+      ORDER BY total_reviews DESC, l.nome, l.place_id
+      LIMIT ${limit} OFFSET ${offset}`;
 
     return get_response('locais encontrados.', locais);
   }
