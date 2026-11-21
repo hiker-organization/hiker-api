@@ -9,10 +9,11 @@ import {
   MinLength,
 } from 'class-validator';
 
-// Search page queries (people and places), paged by offset: ?q=trilha&limit=10&offset=20
+// Search page queries (people and places), paged by offset: ?q=trilha&limit=10&offset=20.
+// Any length, since the app searches while the user types.
 export class BuscaQueryDTO {
   @IsString()
-  @MinLength(3, { message: 'digite pelo menos 3 caractéres para buscar.' })
+  @MinLength(1, { message: 'digite algo para buscar.' })
   @MaxLength(100, { message: 'limite máximo de caractéres: 100.' })
   public q!: string;
 
