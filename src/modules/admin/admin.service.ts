@@ -58,22 +58,83 @@ export class AdminService {
         _count: {
           select: {
             reviews: {
-              where: { status: 'OFENSIVA', deletedAt: null }
-            }
-          }
-        }
+              where: { status: 'OFENSIVA', deletedAt: null },
+            },
+          },
+        },
       },
     });
 
     if (top.length === 0)
       throw new NotFoundException('Nenhum usuário encontrado.');
-    
+
     const data = top.map(({ _count, ...user }) => ({
       ...user,
       blocked_reviews: _count.reviews,
     }));
 
-    return get_response('Usuários encontrados:', data);
+    return get_response('Nenhum dado a ser exibido.', data);
+  }
+
+  async most_reported(query: RankedDTO) {
+    const limit = query.limit ? query.limit : 10;
+    const from = query.from ? query.from : new Date('2026-01-01T00:00:00.000Z');
+    const to = query.to ? query.to : new Date('2026-12-31T23:59:59.999Z');
+
+    return await this.prisma.$transaction(async (tx) => {
+      const reported_posts = await tx.review.groupBy({
+        by: ['id_usuario'],
+        where: {
+          deletedAt: null,
+          qnt_denuncia: {
+            gte: 0,
+          },
+          createdAt: {
+            gte: from,
+            lte: to,
+          },
+        },
+        take: limit,
+        _count: {
+          _all: true,
+        },
+        orderBy: {
+          _count: {
+            id_usuario: 'desc',
+          },
+        },
+      });
+
+      const users = (
+        await Promise.all(
+          reported_posts.map(async (item) => {
+            const usuario = await tx.usuario.findFirst({
+              where: {
+                id: item.id_usuario,
+                deletedAt: null,
+              },
+              select: {
+                id: true,
+                nome_exibicao: true,
+                nome_usuario: true,
+                email: true,
+                reputacao: true,
+                createdAt: true,
+                banido: true,
+                bloqueado: true,
+              },
+            });
+
+            return usuario ? { ...usuario, denuncias: item._count._all } : null;
+          }),
+        )
+      ).filter((user) => user !== null);
+
+      if (users.length === 0)
+        throw new NotFoundException('Nenhum dado a ser exibido.');
+
+      return get_response('teste', users);
+    });
   }
 
   async user_summary(query: SummaryDTO) {
