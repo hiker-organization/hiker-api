@@ -318,22 +318,29 @@ export class ReviewService {
 
     return {
       message: 'Reviews disponíveis',
-      data: data.map((review) => ({
-        ...review,
-        liked: reactions.get(review.id) === 'LIKE',
-        disliked: reactions.get(review.id) === 'DISLIKE',
-        favorited: favoriteIds.has(review.id),
-        reported: reportsIds.has(review.id),
-        fotos: review.fotos.map((foto) => ({
-          url: `${process.env.API_STATIC_REVIEWS}${foto.url}`,
+      // Photos as signed Azure URLs, the same as the feed.
+      data: await Promise.all(
+        data.map(async (review) => ({
+          ...review,
+          liked: reactions.get(review.id) === 'LIKE',
+          disliked: reactions.get(review.id) === 'DISLIKE',
+          favorited: favoriteIds.has(review.id),
+          reported: reportsIds.has(review.id),
+          fotos: await Promise.all(
+            review.fotos.map(async (foto) => ({
+              url: await this.uploadAzureService.getReviewImageUrl(foto.url),
+            })),
+          ),
+          autor: {
+            ...review.autor,
+            foto_url: review.autor.foto_url
+              ? await this.uploadAzureService.getUserImageUrl(
+                  review.autor.foto_url,
+                )
+              : null,
+          },
         })),
-        autor: {
-          ...review.autor,
-          foto_url: review.autor.foto_url
-            ? `${process.env.API_STATIC_USER}${review.autor.foto_url}`
-            : null,
-        },
-      })),
+      ),
       nextCursor,
     };
   }
