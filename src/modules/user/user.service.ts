@@ -23,6 +23,15 @@ import { randomInt } from 'node:crypto';
 import { GlobalValidator } from '../../common/validators/global.validator.js';
 import { UserValidator } from './validator/user.validator.js';
 import { POLITICA_PRIVACIDADE_VERSAO } from '../../common/constants/politica-privacidade.constant.js';
+import { BuscaQueryDTO } from '../../common/dtos/busca-query.dto.js';
+import { escape_like } from '../local/utils/functions/local.functions.js';
+
+type UsuarioBusca = {
+  nome_usuario: string;
+  nome_exibicao: string;
+  foto_url: string | null;
+  reputacao: number;
+};
 
 @Injectable()
 export class UserService {
@@ -99,6 +108,34 @@ export class UserService {
   async get_user(nick: string, token: PayloadDTO) {
     const user = await this.userValidator.get_user_with_nick(nick, token.sub);
     return get_response('Perfil do usuário abaixo', user);
+  }
+
+  // Search page: people by nick or display name, ignoring case, accents and a leading "@".
+  // The ones whose nick or name starts with the term come first, then the best reputation.
+  async buscar({ q, limit = 20, offset = 0 }: BuscaQueryDTO) {
+    const termo = escape_like(q.trim().replace(/^@+/, ''));
+    if (!termo) return get_response('usuários encontrados.', []);
+
+    const users = await this.prisma.$queryRaw<UsuarioBusca[]>`
+      SELECT nome_usuario, nome_exibicao, foto_url, reputacao
+      FROM "Usuario"
+      WHERE "deletedAt" IS NULL AND banido = false
+        AND (unaccent(nome_usuario) ILIKE unaccent(${`%${termo}%`})
+          OR unaccent(nome_exibicao) ILIKE unaccent(${`%${termo}%`}))
+      ORDER BY (unaccent(nome_usuario) ILIKE unaccent(${`@${termo}%`})
+             OR unaccent(nome_exibicao) ILIKE unaccent(${`${termo}%`})) DESC,
+               reputacao DESC, nome_usuario
+      LIMIT ${limit} OFFSET ${offset}`;
+
+    const data = await Promise.all(
+      users.map(async (user) => ({
+        ...user,
+        foto_url: user.foto_url
+          ? await this.uploadAzureService.getUserImageUrl(user.foto_url)
+          : null,
+      })),
+    );
+    return get_response('usuários encontrados.', data);
   }
 
   async get_me(token: PayloadDTO) {

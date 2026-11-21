@@ -210,4 +210,14 @@ describe('LocalService', () => {
 
     expect(prisma.$queryRaw.mock.calls[0][1]).toEqual('%100\\%\\_x%');
   });
+
+  it('pages with limit and offset, 50 from the start when not given', async () => {
+    prisma.$queryRaw.mockResolvedValue([]);
+
+    await service.buscar('trilha', 11, 20);
+    await service.buscar('trilha');
+
+    expect(prisma.$queryRaw.mock.calls[0].slice(-2)).toEqual([11, 20]);
+    expect(prisma.$queryRaw.mock.calls[1].slice(-2)).toEqual([50, 0]);
+  });
 });
