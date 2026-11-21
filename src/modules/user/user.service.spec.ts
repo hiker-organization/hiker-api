@@ -12,6 +12,7 @@ import { UserMock } from './mocks/userCreate.mock.js';
 import { ConflictException } from '@nestjs/common';
 import { GlobalValidator } from '../../common/validators/global.validator.js';
 import { UserValidator } from './validator/user.validator.js';
+import { POLITICA_PRIVACIDADE_VERSAO } from '../../common/constants/politica-privacidade.constant.js';
 
 describe('userService', () => {
   let userService: UserService;
@@ -73,6 +74,24 @@ describe('userService', () => {
       });
     });
 
+    it('Should save the privacy policy version and when it was accepted.', async () => {
+      jest.spyOn(prismaService.usuario, 'findFirst').mockResolvedValue(null);
+      jest.spyOn(hashService, 'hash').mockResolvedValue('hash');
+      const create = jest
+        .spyOn(prismaService.usuario, 'create')
+        .mockResolvedValue({} as any);
+
+      await userService.create_user(UserMock);
+
+      const data = create.mock.calls[0][0].data as Record<string, unknown>;
+      expect(data).toMatchObject({
+        politica_versao: POLITICA_PRIVACIDADE_VERSAO,
+        politica_aceita_em: expect.any(Date),
+      });
+      // The flag is not a column of Usuario.
+      expect(data).not.toHaveProperty('aceite_politica');
+    });
+
     it('Should not create user because nickname exists', async () => {
       const hashed_password = 'senha_hasheada_123';
       const user_data = UserMock;
@@ -125,6 +144,114 @@ describe('userService', () => {
       expect(prismaService.usuario.findFirst).toHaveBeenCalledWith({
         where: { numero_celular: '(14) 99882-2367', deletedAt: null },
       });
+    });
+  });
+
+  describe('favorites', () => {
+    const favorite = (id: number, reviewId: number) => ({
+      id,
+      review: {
+        id: reviewId,
+        descricao: 'boa trilha',
+        fotos: [{ url: 'f.jpg' }],
+        autor: { nome_usuario: '@ana', foto_url: null },
+      },
+    });
+
+    it('Should return the reviews in the feed shape, with the favorite id as the cursor.', async () => {
+      const favoritaFindMany = prismaService.review_favorita
+        .findMany as jest.Mock<any>;
+      favoritaFindMany
+        // The page: limit 1 plus one more, so there is a next page.
+        .mockResolvedValueOnce([favorite(7, 40), favorite(5, 30)])
+        // The favorited check of the page.
+        .mockResolvedValueOnce([{ id_review: 40 }, { id_review: 30 }]);
+      (prismaService.voto_review.findMany as jest.Mock<any>).mockResolvedValue(
+        [],
+      );
+      (prismaService.denuncia.findMany as jest.Mock<any>).mockResolvedValue([]);
+      (
+        uploadAzureService.getReviewImageUrl as jest.Mock<any>
+      ).mockResolvedValue('https://blob/f.jpg?sas');
+
+      const result = await userService.favorites({ sub: 1 } as any, {
+        limit: 1,
+      });
+
+      expect(result.nextCursor).toBe(7);
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0]).toMatchObject({
+        id: 40,
+        descricao: 'boa trilha',
+        favorited: true,
+        // Signed Azure URL, the same as the feed: the API has no static photo route.
+        fotos: [{ url: 'https://blob/f.jpg?sas' }],
+        autor: { nome_usuario: '@ana', foto_url: null },
+      });
+      expect(result.data[0]).not.toHaveProperty('review');
+    });
+  });
+
+  describe('buscar', () => {
+    const rows = [
+      {
+        nome_usuario: '@joao',
+        nome_exibicao: 'João',
+        foto_url: 'user-1.jpg',
+        reputacao: 4,
+      },
+      {
+        nome_usuario: '@joana',
+        nome_exibicao: 'Joana',
+        foto_url: null,
+        reputacao: 2,
+      },
+    ];
+
+    it('searches by nick and name, with signed photos and the page asked', async () => {
+      const queryRaw = jest
+        .spyOn(prismaService, '$queryRaw')
+        .mockResolvedValue(rows as never);
+      jest
+        .spyOn(uploadAzureService, 'getUserImageUrl')
+        .mockResolvedValue('https://blob/user-1.jpg?sas');
+
+      const result = await userService.buscar({
+        q: ' @jo ',
+        limit: 5,
+        offset: 10,
+      });
+
+      const [strings, ...values] = queryRaw.mock.calls[0] as unknown as [
+        string[],
+        ...unknown[],
+      ];
+      const sql = strings.join('?');
+      expect(sql).toContain('"deletedAt" IS NULL AND banido = false');
+      expect(sql).toContain('unaccent(nome_exibicao) ILIKE unaccent(?)');
+      expect(values).toEqual(['%jo%', '%jo%', '@jo%', 'jo%', 5, 10]);
+      expect(result.data).toEqual([
+        { ...rows[0], foto_url: 'https://blob/user-1.jpg?sas' },
+        rows[1],
+      ]);
+      expect(uploadAzureService.getUserImageUrl).toHaveBeenCalledTimes(1);
+    });
+
+    it('matches % and _ literally', async () => {
+      const queryRaw = jest
+        .spyOn(prismaService, '$queryRaw')
+        .mockResolvedValue([] as never);
+
+      await userService.buscar({ q: '100%_x' });
+
+      expect(queryRaw.mock.calls[0][1]).toEqual('%100\\%\\_x%');
+    });
+
+    it('returns nothing for a term made only of "@"', async () => {
+      const result = await userService.buscar({ q: '@@@' });
+
+      expect(result.data).toEqual([]);
+      expect(prismaService.$queryRaw).not.toHaveBeenCalled();
     });
   });
 });

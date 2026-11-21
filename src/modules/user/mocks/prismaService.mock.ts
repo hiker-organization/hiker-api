@@ -1,6 +1,7 @@
 import { jest } from '@jest/globals';
 export const PrismaServiceMock = () => ({
   $transaction: jest.fn(),
+  $queryRaw: jest.fn(),
   usuario: {
     create: jest.fn(),
     update: jest.fn(),
@@ -9,6 +10,12 @@ export const PrismaServiceMock = () => ({
   },
 
   voto_review: {
+    findMany: jest.fn(),
+  },
+  review_favorita: {
+    findMany: jest.fn(),
+  },
+  denuncia: {
     findMany: jest.fn(),
   },
   review: {

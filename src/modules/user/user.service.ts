@@ -22,6 +22,16 @@ import { ConfirmEmailChangeDTO } from './dtos/confirmEmailChange.dto.js';
 import { randomInt } from 'node:crypto';
 import { GlobalValidator } from '../../common/validators/global.validator.js';
 import { UserValidator } from './validator/user.validator.js';
+import { POLITICA_PRIVACIDADE_VERSAO } from '../../common/constants/politica-privacidade.constant.js';
+import { BuscaQueryDTO } from '../../common/dtos/busca-query.dto.js';
+import { escape_like } from '../local/utils/functions/local.functions.js';
+
+type UsuarioBusca = {
+  nome_usuario: string;
+  nome_exibicao: string;
+  foto_url: string | null;
+  reputacao: number;
+};
 
 @Injectable()
 export class UserService {
@@ -34,7 +44,10 @@ export class UserService {
     private userValidator: UserValidator,
   ) {}
 
-  async create_user(data: CreateUserDTO, foto?: Express.Multer.File) {
+  async create_user(
+    { aceite_politica, ...data }: CreateUserDTO,
+    foto?: Express.Multer.File,
+  ) {
     await this.userValidator.email_empty_or_fail(data.email);
 
     await this.userValidator.numero_is_equal_fail(data.numero_celular);
@@ -53,7 +66,14 @@ export class UserService {
     }
 
     const user = await this.prisma.usuario.create({
-      data: { ...data, senha: hash, nome_usuario: nick },
+      data: {
+        ...data,
+        senha: hash,
+        nome_usuario: nick,
+        // The DTO only lets aceite_politica true through, the check is for direct calls.
+        politica_versao: aceite_politica ? POLITICA_PRIVACIDADE_VERSAO : null,
+        politica_aceita_em: aceite_politica ? new Date() : null,
+      },
       select: {
         nome_usuario: true,
         nome_exibicao: true,
@@ -90,6 +110,34 @@ export class UserService {
     return get_response('Perfil do usuário abaixo', user);
   }
 
+  // Search page: people by nick or display name, ignoring case, accents and a leading "@".
+  // The ones whose nick or name starts with the term come first, then the best reputation.
+  async buscar({ q, limit = 20, offset = 0 }: BuscaQueryDTO) {
+    const termo = escape_like(q.trim().replace(/^@+/, ''));
+    if (!termo) return get_response('usuários encontrados.', []);
+
+    const users = await this.prisma.$queryRaw<UsuarioBusca[]>`
+      SELECT nome_usuario, nome_exibicao, foto_url, reputacao
+      FROM "Usuario"
+      WHERE "deletedAt" IS NULL AND banido = false
+        AND (unaccent(nome_usuario) ILIKE unaccent(${`%${termo}%`})
+          OR unaccent(nome_exibicao) ILIKE unaccent(${`%${termo}%`}))
+      ORDER BY (unaccent(nome_usuario) ILIKE unaccent(${`@${termo}%`})
+             OR unaccent(nome_exibicao) ILIKE unaccent(${`${termo}%`})) DESC,
+               reputacao DESC, nome_usuario
+      LIMIT ${limit} OFFSET ${offset}`;
+
+    const data = await Promise.all(
+      users.map(async (user) => ({
+        ...user,
+        foto_url: user.foto_url
+          ? await this.uploadAzureService.getUserImageUrl(user.foto_url)
+          : null,
+      })),
+    );
+    return get_response('usuários encontrados.', data);
+  }
+
   async get_me(token: PayloadDTO) {
     const user = await this.userValidator.get_user_with_full_data(token.sub);
     return get_response('Seu perfil abaixo', user);
@@ -109,6 +157,8 @@ export class UserService {
       },
       orderBy: { createdAt: 'desc' },
       select: {
+        // The cursor is the favorite's id, the same field the cursor above filters on.
+        id: true,
         review: {
           select: {
             id: true,
@@ -141,7 +191,7 @@ export class UserService {
 
     const hasNextPage = reviews.length > limit;
     const data = hasNextPage ? reviews.slice(0, limit) : reviews;
-    const nextCursor = hasNextPage ? data[data.length - 1].review.id : null;
+    const nextCursor = hasNextPage ? data[data.length - 1].id : null;
 
     const favoriteIds = await this.globalValidator.favorited_reviews(
       reviews.map((review) => review.review.id),
@@ -158,22 +208,30 @@ export class UserService {
     );
 
     return {
-      data: data.map((review) => ({
-        ...review,
-        liked: reactions.get(review.review.id) === 'LIKE',
-        disliked: reactions.get(review.review.id) === 'DISLIKE',
-        favorited: favoriteIds.has(review.review.id),
-        reported: reportsIds.has(review.review.id),
-        fotos: review.review.fotos.map((foto) => ({
-          url: `${process.env.API_STATIC_REVIEWS}${foto.url}`,
+      // Same shape as the feed reviews, photos as signed Azure URLs included, so the
+      // app reads both the same way.
+      data: await Promise.all(
+        data.map(async ({ review }) => ({
+          ...review,
+          liked: reactions.get(review.id) === 'LIKE',
+          disliked: reactions.get(review.id) === 'DISLIKE',
+          favorited: favoriteIds.has(review.id),
+          reported: reportsIds.has(review.id),
+          fotos: await Promise.all(
+            review.fotos.map(async (foto) => ({
+              url: await this.uploadAzureService.getReviewImageUrl(foto.url),
+            })),
+          ),
+          autor: {
+            ...review.autor,
+            foto_url: review.autor.foto_url
+              ? await this.uploadAzureService.getUserImageUrl(
+                  review.autor.foto_url,
+                )
+              : null,
+          },
         })),
-        autor: {
-          ...review.review.autor,
-          foto_url: review.review.autor.foto_url
-            ? `${process.env.API_STATIC_USER}${review.review.autor.foto_url}`
-            : null,
-        },
-      })),
+      ),
       nextCursor,
     };
   }

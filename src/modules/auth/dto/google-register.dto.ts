@@ -10,6 +10,7 @@ export class GoogleRegisterDTO extends PickType(CreateUserDTO, [
   'senha',
   'numero_celular',
   'data_nascimento',
+  'aceite_politica',
 ] as const) {
   @IsString()
   @IsNotEmpty({ message: 'cadastro com Google expirado, entre novamente.' })

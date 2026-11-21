@@ -1,5 +1,6 @@
 import { Transform } from 'class-transformer';
 import {
+  Equals,
   IsEmail,
   IsMobilePhone,
   IsDate,
@@ -62,4 +63,11 @@ export class CreateUserDTO {
 
   @IsOptional()
   public foto_url?: string;
+
+  // The sign-up is a multipart form, so the value can come as the string "true".
+  @Transform(({ value }) => value === true || value === 'true')
+  @Equals(true, {
+    message: 'Aceite a Política de Privacidade para criar sua conta.',
+  })
+  public aceite_politica!: boolean;
 }
