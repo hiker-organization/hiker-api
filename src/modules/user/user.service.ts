@@ -171,23 +171,30 @@ export class UserService {
     );
 
     return {
-      // Same shape as the feed reviews, so the app reads both the same way.
-      data: data.map((review) => ({
-        ...review.review,
-        liked: reactions.get(review.review.id) === 'LIKE',
-        disliked: reactions.get(review.review.id) === 'DISLIKE',
-        favorited: favoriteIds.has(review.review.id),
-        reported: reportsIds.has(review.review.id),
-        fotos: review.review.fotos.map((foto) => ({
-          url: `${process.env.API_STATIC_REVIEWS}${foto.url}`,
+      // Same shape as the feed reviews, photos as signed Azure URLs included, so the
+      // app reads both the same way.
+      data: await Promise.all(
+        data.map(async ({ review }) => ({
+          ...review,
+          liked: reactions.get(review.id) === 'LIKE',
+          disliked: reactions.get(review.id) === 'DISLIKE',
+          favorited: favoriteIds.has(review.id),
+          reported: reportsIds.has(review.id),
+          fotos: await Promise.all(
+            review.fotos.map(async (foto) => ({
+              url: await this.uploadAzureService.getReviewImageUrl(foto.url),
+            })),
+          ),
+          autor: {
+            ...review.autor,
+            foto_url: review.autor.foto_url
+              ? await this.uploadAzureService.getUserImageUrl(
+                  review.autor.foto_url,
+                )
+              : null,
+          },
         })),
-        autor: {
-          ...review.review.autor,
-          foto_url: review.review.autor.foto_url
-            ? `${process.env.API_STATIC_USER}${review.review.autor.foto_url}`
-            : null,
-        },
-      })),
+      ),
       nextCursor,
     };
   }

@@ -170,6 +170,9 @@ describe('userService', () => {
         [],
       );
       (prismaService.denuncia.findMany as jest.Mock<any>).mockResolvedValue([]);
+      (
+        uploadAzureService.getReviewImageUrl as jest.Mock<any>
+      ).mockResolvedValue('https://blob/f.jpg?sas');
 
       const result = await userService.favorites({ sub: 1 } as any, {
         limit: 1,
@@ -181,7 +184,9 @@ describe('userService', () => {
         id: 40,
         descricao: 'boa trilha',
         favorited: true,
-        autor: { nome_usuario: '@ana' },
+        // Signed Azure URL, the same as the feed: the API has no static photo route.
+        fotos: [{ url: 'https://blob/f.jpg?sas' }],
+        autor: { nome_usuario: '@ana', foto_url: null },
       });
       expect(result.data[0]).not.toHaveProperty('review');
     });
