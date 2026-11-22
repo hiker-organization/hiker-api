@@ -130,6 +130,13 @@ export class AdminController {
 
   @UseGuards(AuthToken, RolesGuard)
   @Roles(Role.ADMIM)
+  @Get('reviews/top-by-open-reports')
+  reviews(@Query() query: RankedDTO) {
+    return this.service.open_reviews_reports(query);
+  }
+
+  @UseGuards(AuthToken, RolesGuard)
+  @Roles(Role.ADMIM)
   @Get('reviews/summary')
   review_summary(@Query() query: SummaryDTO) {
     return this.service.review_summary(query);
