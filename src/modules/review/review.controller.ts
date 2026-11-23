@@ -64,6 +64,12 @@ export class ReviewController {
     return this.service.get_reviews(query, token);
   }
 
+  // Declared before '/:id', or Express would match 'recommended' as an id.
+  @Get('/recommended')
+  get_recommended_reviews(@TokenPayloadParam() token: PayloadDTO) {
+    return this.service.get_recommended_reviews(token);
+  }
+
   @Post('/favorite/:id')
   fav_review(
     @Param('id', ParseIntPipe) id: number,

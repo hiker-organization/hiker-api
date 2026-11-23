@@ -8,6 +8,43 @@ import { PayloadDTO } from '../../auth/dto/payload.dto.js';
 import { GetReviewsQueryDTO } from '../dtos/get-reviews-query.dto.js';
 import { GlobalValidator } from '../../../common/validators/global.validator.js';
 import { UploadAzureService } from '../../../common/services/upload.azure.service.js';
+import { Prisma } from '../../../../generated/prisma/client.js';
+
+// Reviews that can show up in a feed.
+const FEED_REVIEW_WHERE = {
+  oculto: false,
+  deletedAt: null,
+  status: { in: ['AUTORIZADA', 'ANALISE'] },
+} satisfies Prisma.ReviewWhereInput;
+
+const FEED_REVIEW_SELECT = {
+  id: true,
+  descricao: true,
+  id_local: true,
+  local: true,
+  qnt_likes: true,
+  qnt_favoritos: true,
+  qnt_denuncia: true,
+  qnt_dislikes: true,
+  nota: true,
+  createdAt: true,
+  autor: {
+    select: {
+      nome_exibicao: true,
+      foto_url: true,
+      reputacao: true,
+      nome_usuario: true,
+    },
+  },
+  fotos: { select: { url: true } },
+  tags: {
+    select: {
+      tag: {
+        select: { descritivo: true },
+      },
+    },
+  },
+} satisfies Prisma.ReviewSelect;
 
 @Injectable()
 export class ReviewValidator {
@@ -159,39 +196,8 @@ export class ReviewValidator {
       orderBy: {
         id: 'desc',
       },
-      where: {
-        oculto: false,
-        deletedAt: null,
-        status: { in: ['AUTORIZADA', 'ANALISE'] },
-      },
-      select: {
-        id: true,
-        descricao: true,
-        id_local: true,
-        local: true,
-        qnt_likes: true,
-        qnt_favoritos: true,
-        qnt_denuncia: true,
-        qnt_dislikes: true,
-        nota: true,
-        createdAt: true,
-        autor: {
-          select: {
-            nome_exibicao: true,
-            foto_url: true,
-            reputacao: true,
-            nome_usuario: true,
-          },
-        },
-        fotos: { select: { url: true } },
-        tags: {
-          select: {
-            tag: {
-              select: { descritivo: true },
-            },
-          },
-        },
-      },
+      where: FEED_REVIEW_WHERE,
+      select: FEED_REVIEW_SELECT,
     });
 
     if (reviews.length === 0)
@@ -201,23 +207,47 @@ export class ReviewValidator {
     const data = hasNextPage ? reviews.slice(0, limit) : reviews;
     const nextCursor = hasNextPage ? data[data.length - 1].id : null;
 
+    return {
+      data: await this.with_user_context(data, userId),
+      nextCursor,
+    };
+  }
+
+  // Reviews the recommendation job (hiker-recommendation) picked for the
+  // user, best rank first. Reviews hidden or removed after the job ran are
+  // left out. Empty when the job has nothing for the user yet.
+  async find_recommended_reviews(userId: number) {
+    const recomendacoes = await this.prisma.recomendacao.findMany({
+      where: { id_usuario: userId, review: FEED_REVIEW_WHERE },
+      orderBy: { rank: 'asc' },
+      select: { review: { select: FEED_REVIEW_SELECT } },
+    });
+
+    return this.with_user_context(
+      recomendacoes.map((recomendacao) => recomendacao.review),
+      userId,
+    );
+  }
+
+  // Adds the user's reactions, favorites and reports to each review and
+  // swaps the stored photo paths for signed Azure urls.
+  private async with_user_context(
+    reviews: Prisma.ReviewGetPayload<{ select: typeof FEED_REVIEW_SELECT }>[],
+    userId: number,
+  ) {
+    const ids = reviews.map((review) => review.id);
     const reactions = await this.globalValidator.get_user_reactions_for_reviews(
-      data.map((review) => review.id),
+      ids,
       userId,
     );
-
     const favoriteIds = await this.globalValidator.favorited_reviews(
-      data.map((review) => review.id),
+      ids,
       userId,
     );
+    const reportsIds = await this.globalValidator.reported_reviews(ids, userId);
 
-    const reportsIds = await this.globalValidator.reported_reviews(
-      data.map((review) => review.id),
-      userId,
-    );
-
-    const data_with_fotos = await Promise.all(
-      data.map(async (review) => ({
+    return Promise.all(
+      reviews.map(async (review) => ({
         ...review,
         liked: reactions.get(review.id) === 'LIKE',
         favorited: favoriteIds.has(review.id),
@@ -236,11 +266,6 @@ export class ReviewValidator {
         },
       })),
     );
-
-    return {
-      data: data_with_fotos,
-      nextCursor,
-    };
   }
 
   async find_reviews_search(
