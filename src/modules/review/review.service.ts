@@ -243,6 +243,11 @@ export class ReviewService {
     };
   }
 
+  async get_recommended_reviews(token: PayloadDTO) {
+    const data = await this.reviewValidator.find_recommended_reviews(token.sub);
+    return get_response('reviews recomendadas', data);
+  }
+
   async get_local_reviews(
     id: string,
     query: GetReviewsQueryDTO,

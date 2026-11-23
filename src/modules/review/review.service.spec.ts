@@ -118,4 +118,73 @@ describe('ReviewService', () => {
       expect(create).not.toHaveBeenCalled();
     });
   });
+
+  describe('get_recommended_reviews', () => {
+    const review = (id: number) => ({
+      id,
+      descricao: `review ${id}`,
+      fotos: [{ url: `review/${id}.jpg` }],
+      autor: { nome_usuario: `autor${id}`, foto_url: null },
+    });
+
+    it('Should return the recommended reviews in rank order with the user context.', async () => {
+      const findMany = jest
+        .spyOn(prismaService.recomendacao, 'findMany')
+        .mockResolvedValue([
+          { review: review(7) },
+          { review: review(3) },
+        ] as any);
+      jest
+        .spyOn(prismaService.voto_review, 'findMany')
+        .mockResolvedValue([{ id_review: 7, tipo: 'LIKE' }] as any);
+      jest
+        .spyOn(prismaService.review_favorita, 'findMany')
+        .mockResolvedValue([{ id_review: 3 }] as any);
+      jest.spyOn(prismaService.denuncia, 'findMany').mockResolvedValue([]);
+      jest
+        .spyOn(uploadAzureService, 'getReviewImageUrl')
+        .mockImplementation((path: string) =>
+          Promise.resolve(`https://signed/${path}`),
+        );
+
+      const result = await reviewService.get_recommended_reviews({
+        sub: 1,
+      } as any);
+
+      expect(findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            id_usuario: 1,
+            review: {
+              oculto: false,
+              deletedAt: null,
+              status: { in: ['AUTORIZADA', 'ANALISE'] },
+            },
+          },
+          orderBy: { rank: 'asc' },
+        }),
+      );
+      expect(result.message).toBe('reviews recomendadas');
+      expect(result.data.map((r: { id: number }) => r.id)).toEqual([7, 3]);
+      expect(result.data[0]).toMatchObject({
+        liked: true,
+        disliked: false,
+        favorited: false,
+        reported: false,
+        fotos: [{ url: 'https://signed/review/7.jpg' }],
+      });
+      expect(result.data[1]).toMatchObject({ liked: false, favorited: true });
+    });
+
+    it('Should return an empty list when the user has no recommendations.', async () => {
+      jest.spyOn(prismaService.recomendacao, 'findMany').mockResolvedValue([]);
+
+      const result = await reviewService.get_recommended_reviews({
+        sub: 1,
+      } as any);
+
+      expect(result).toEqual({ message: 'reviews recomendadas', data: [] });
+      expect(prismaService.voto_review.findMany).not.toHaveBeenCalled();
+    });
+  });
 });
