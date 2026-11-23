@@ -9,6 +9,7 @@ import {
 import { SkipThrottle } from '@nestjs/throttler';
 import { AuthToken } from '../auth/guard/auth.guard.js';
 import { SearchLocalDTO } from './dtos/search-local.dto.js';
+import { BuscaQueryDTO } from '../../common/dtos/busca-query.dto.js';
 import { GetLocaisDTO } from './dtos/get-locais.dto.js';
 import { LocalService } from './local.service.js';
 
@@ -22,14 +23,14 @@ export class LocalController {
   @UseGuards(AuthToken)
   @Get('search')
   search(@Query() query: SearchLocalDTO) {
-    return this.service.search(query.q);
+    return this.service.search(query.q, query.lat, query.lng);
   }
 
   // Search page: only places that already have reviews.
   @UseGuards(AuthToken)
   @Get('buscar')
-  buscar(@Query() query: SearchLocalDTO) {
-    return this.service.buscar(query.q);
+  buscar(@Query() query: BuscaQueryDTO) {
+    return this.service.buscar(query.q, query.limit, query.offset);
   }
 
   // Location of several places at once, for the review cards.

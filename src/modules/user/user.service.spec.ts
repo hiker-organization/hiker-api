@@ -170,6 +170,9 @@ describe('userService', () => {
         [],
       );
       (prismaService.denuncia.findMany as jest.Mock<any>).mockResolvedValue([]);
+      (
+        uploadAzureService.getReviewImageUrl as jest.Mock<any>
+      ).mockResolvedValue('https://blob/f.jpg?sas');
 
       const result = await userService.favorites({ sub: 1 } as any, {
         limit: 1,
@@ -181,9 +184,74 @@ describe('userService', () => {
         id: 40,
         descricao: 'boa trilha',
         favorited: true,
-        autor: { nome_usuario: '@ana' },
+        // Signed Azure URL, the same as the feed: the API has no static photo route.
+        fotos: [{ url: 'https://blob/f.jpg?sas' }],
+        autor: { nome_usuario: '@ana', foto_url: null },
       });
       expect(result.data[0]).not.toHaveProperty('review');
+    });
+  });
+
+  describe('buscar', () => {
+    const rows = [
+      {
+        nome_usuario: '@joao',
+        nome_exibicao: 'João',
+        foto_url: 'user-1.jpg',
+        reputacao: 4,
+      },
+      {
+        nome_usuario: '@joana',
+        nome_exibicao: 'Joana',
+        foto_url: null,
+        reputacao: 2,
+      },
+    ];
+
+    it('searches by nick and name, with signed photos and the page asked', async () => {
+      const queryRaw = jest
+        .spyOn(prismaService, '$queryRaw')
+        .mockResolvedValue(rows as never);
+      jest
+        .spyOn(uploadAzureService, 'getUserImageUrl')
+        .mockResolvedValue('https://blob/user-1.jpg?sas');
+
+      const result = await userService.buscar({
+        q: ' @jo ',
+        limit: 5,
+        offset: 10,
+      });
+
+      const [strings, ...values] = queryRaw.mock.calls[0] as unknown as [
+        string[],
+        ...unknown[],
+      ];
+      const sql = strings.join('?');
+      expect(sql).toContain('"deletedAt" IS NULL AND banido = false');
+      expect(sql).toContain('unaccent(nome_exibicao) ILIKE unaccent(?)');
+      expect(values).toEqual(['%jo%', '%jo%', '@jo%', 'jo%', 5, 10]);
+      expect(result.data).toEqual([
+        { ...rows[0], foto_url: 'https://blob/user-1.jpg?sas' },
+        rows[1],
+      ]);
+      expect(uploadAzureService.getUserImageUrl).toHaveBeenCalledTimes(1);
+    });
+
+    it('matches % and _ literally', async () => {
+      const queryRaw = jest
+        .spyOn(prismaService, '$queryRaw')
+        .mockResolvedValue([] as never);
+
+      await userService.buscar({ q: '100%_x' });
+
+      expect(queryRaw.mock.calls[0][1]).toEqual('%100\\%\\_x%');
+    });
+
+    it('returns nothing for a term made only of "@"', async () => {
+      const result = await userService.buscar({ q: '@@@' });
+
+      expect(result.data).toEqual([]);
+      expect(prismaService.$queryRaw).not.toHaveBeenCalled();
     });
   });
 });

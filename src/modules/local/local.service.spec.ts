@@ -98,6 +98,23 @@ describe('LocalService', () => {
     global.fetch = originalFetch;
   });
 
+  it('biases the autocomplete to the user position when given', async () => {
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(new Response(JSON.stringify({ suggestions: [] }))),
+    );
+
+    await service.search('parque', -23.18, -46.89);
+    await service.search('parque');
+
+    const bodies = fetchMock.mock.calls.map(
+      (call) => JSON.parse(call[1]!.body as string) as Record<string, unknown>,
+    );
+    expect(bodies[0].locationBias).toEqual({
+      circle: { center: { latitude: -23.18, longitude: -46.89 }, radius: 50000 },
+    });
+    expect(bodies[1]).not.toHaveProperty('locationBias');
+  });
+
   it('only calls Google for places not cached yet', async () => {
     prisma.local.findMany.mockResolvedValue([{ place_id: 'a', nome: 'A' }]);
     fetchMock.mockResolvedValue(new Response(JSON.stringify(parkDetails)));
@@ -209,5 +226,15 @@ describe('LocalService', () => {
     await service.buscar('100%_x');
 
     expect(prisma.$queryRaw.mock.calls[0][1]).toEqual('%100\\%\\_x%');
+  });
+
+  it('pages with limit and offset, 50 from the start when not given', async () => {
+    prisma.$queryRaw.mockResolvedValue([]);
+
+    await service.buscar('trilha', 11, 20);
+    await service.buscar('trilha');
+
+    expect(prisma.$queryRaw.mock.calls[0].slice(-2)).toEqual([11, 20]);
+    expect(prisma.$queryRaw.mock.calls[1].slice(-2)).toEqual([50, 0]);
   });
 });
