@@ -125,7 +125,14 @@ export class AdminController {
   @Roles(Role.ADMIM)
   @Get('users/top-by-reports-received')
   users_reports_received(@Query() query: RankedDTO) {
-    return;
+    return this.service.most_reported(query);
+  }
+
+  @UseGuards(AuthToken, RolesGuard)
+  @Roles(Role.ADMIM)
+  @Get('reviews/top-by-open-reports')
+  reviews(@Query() query: RankedDTO) {
+    return this.service.open_reviews_reports(query);
   }
 
   @UseGuards(AuthToken, RolesGuard)
