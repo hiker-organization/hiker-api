@@ -8,6 +8,7 @@ import { UploadAzureService } from '../../common/services/upload.azure.service.j
 import { FilesAzureService } from '../../common/services/file.azure.service.js';
 import { CommonModule } from '../../common/common.module.js';
 import { ReviewValidator } from './validator/review.validator.js';
+import { ModeracaoService } from '../../common/services/moderacao.service.js';
 
 @Module({
   imports: [AuthModule, PrismaModule, LocalModule, CommonModule],
@@ -17,6 +18,7 @@ import { ReviewValidator } from './validator/review.validator.js';
     UploadAzureService,
     FilesAzureService,
     ReviewValidator,
+    ModeracaoService,
   ],
 })
 export class ReviewModule {}

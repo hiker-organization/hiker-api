@@ -24,6 +24,7 @@ import { GetReportsDTO } from './utils/dto/reports.dto.js';
 import { SkipThrottle } from '@nestjs/throttler';
 import { ModerateDTO } from './utils/dto/moderate.dto.js';
 import { GetReviewDTO } from './utils/dto/reviews.dto.js';
+import { GetAutoBlockedDTO } from './utils/dto/auto-blocked.dto.js';
 import { SummaryDTO } from './utils/dto/summary.query.dto.js';
 import { RankedDTO } from './utils/dto/ranked.query.dto.js';
 
@@ -57,6 +58,25 @@ export class AdminController {
   @Get('reviews')
   show_reviews(@Query() query: GetReviewDTO) {
     return this.service.reviews_reported(query);
+  }
+
+  // Reviews hidden by the offensive content classifier (hiker-moderation).
+  @UseGuards(AuthToken, RolesGuard)
+  @Roles(Role.ADMIM)
+  @Get('reviews/auto-blocked')
+  auto_blocked_reviews(@Query() query: GetAutoBlockedDTO) {
+    return this.service.auto_blocked_reviews(query);
+  }
+
+  // status AUTORIZADA reverts the automatic block, OFENSIVA confirms it.
+  @UseGuards(AuthToken, RolesGuard)
+  @Roles(Role.ADMIM)
+  @Patch('review/:id/auto-block')
+  review_auto_block(
+    @Param('id', ParseIntPipe) reviewId: number,
+    @Body() data: ModerateDTO,
+  ) {
+    return this.service.review_auto_block(reviewId, data);
   }
 
   @UseGuards(AuthToken, RolesGuard)

@@ -70,9 +70,30 @@ model Review {
   interacoes    Voto_review[]
   favoritas     Review_favorita[]
   recomendacoes Recomendacao[]
+  classificacao Classificacao_review?
 
   @@index([id_usuario])
   @@index([id_local])
+}
+
+// Result of the offensive content classifier (hiker-moderation) for the review text.
+// The block itself is Review.status = OFENSIVA, this keeps the score for audit.
+// A review without a row wasn't classified (service down), the backfill catches it.
+// Automatic block = status OFENSIVA + ofensivo here + no admin revert (see bloqueio.constants.ts).
+model Classificacao_review {
+  id              Int         @id             @default(autoincrement())
+  id_review       Int         @unique
+  ofensivo        Boolean
+  probabilidade   Float
+  modelo_versao   String
+  // Admin review of an automatic block: AUTORIZADA reverts it, OFENSIVA confirms it.
+  revisado_em     DateTime?
+  decisao_admin   Status_Review?
+  createdAt       DateTime    @default(now())
+
+  review          Review      @relation(fields: [id_review], references: [id], onDelete: Cascade)
+
+  @@index([ofensivo])
 }
 
 model Voto_review {

@@ -10,16 +10,19 @@ import { UploadAzureService } from '../../common/services/upload.azure.service.j
 import { LocalService } from '../local/local.service.js';
 import { GlobalValidator } from '../../common/validators/global.validator.js';
 import { ReviewValidator } from './validator/review.validator.js';
+import { ModeracaoService } from '../../common/services/moderacao.service.js';
 
 describe('ReviewService', () => {
   let reviewService: ReviewService;
   let prismaService: PrismaService;
   let uploadAzureService: UploadAzureService;
   let localService: { ensure_local: jest.Mock<(placeId: string) => any> };
+  let moderacaoService: { classificar: jest.Mock<(texto: string) => any> };
 
   beforeEach(async () => {
     jest.clearAllMocks();
     localService = { ensure_local: jest.fn() };
+    moderacaoService = { classificar: jest.fn(async () => null) };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -27,6 +30,7 @@ describe('ReviewService', () => {
         { provide: PrismaService, useValue: PrismaServiceMock() },
         { provide: UploadAzureService, useValue: UploadAzureServiceMock() },
         { provide: LocalService, useValue: localService },
+        { provide: ModeracaoService, useValue: moderacaoService },
         GlobalValidator,
         ReviewValidator,
       ],
@@ -98,6 +102,40 @@ describe('ReviewService', () => {
       expect(localService.ensure_local).toHaveBeenCalledWith(
         review_data.local_id,
       );
+    });
+
+    it('Should save an offensive review as OFENSIVA with its classification.', async () => {
+      const classificacao = {
+        ofensivo: true,
+        probabilidade: 0.97,
+        modelo_versao: 'v1',
+      };
+      moderacaoService.classificar.mockResolvedValue(classificacao);
+      jest
+        .spyOn(prismaService.usuario, 'findUnique')
+        .mockResolvedValue({ banido: false, bloqueado: false } as any);
+      jest
+        .spyOn(prismaService, '$transaction')
+        .mockImplementation((callback: any) => callback(prismaService));
+      jest.spyOn(prismaService.tag, 'findUnique').mockResolvedValue(null);
+      jest
+        .spyOn(prismaService.tag, 'create')
+        .mockResolvedValue({ id: 1 } as any);
+      const create = jest
+        .spyOn(prismaService.review, 'create')
+        .mockResolvedValue({ fotos: [] } as any);
+
+      const result = await reviewService.create_review(ReviewMock, {
+        sub: 1,
+      } as any);
+
+      expect(moderacaoService.classificar).toHaveBeenCalledWith(
+        ReviewMock.descricao,
+      );
+      const args = create.mock.calls[0][0] as any;
+      expect(args.data.status).toBe('OFENSIVA');
+      expect(args.data.classificacao).toEqual({ create: classificacao });
+      expect(result.message).toContain('não será exibida');
     });
 
     it('Should not create the review when the place cannot be loaded.', async () => {
