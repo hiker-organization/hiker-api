@@ -1,6 +1,5 @@
 import {
   ConflictException,
-  HttpStatus,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -15,6 +14,8 @@ import { GetReportsDTO } from './utils/dto/reports.dto.js';
 import { ModerateDTO } from './utils/dto/moderate.dto.js';
 import { GetReviewDTO } from './utils/dto/reviews.dto.js';
 import { GetAutoBlockedDTO } from './utils/dto/auto-blocked.dto.js';
+import { SummaryDTO } from './utils/dto/summary.query.dto.js';
+import { RankedDTO } from './utils/dto/ranked.query.dto.js';
 
 @Injectable()
 export class AdminService {
@@ -30,6 +31,287 @@ export class AdminService {
     });
 
     return message_response('Usuário setado com sucesso!');
+  }
+
+  async blocked_reviews(query: RankedDTO) {
+    const limit = query.limit ? query.limit : 10;
+    const from = query.from ? query.from : new Date('2026-01-01T00:00:00.000Z');
+    const to = query.to ? query.to : new Date('2026-12-31T23:59:59.999Z');
+
+    const top = await this.prisma.usuario.findMany({
+      where: {
+        deletedAt: null,
+        AND: { createdAt: { gte: from, lte: to } },
+        reviews: {
+          some: { status: 'OFENSIVA', deletedAt: null },
+        },
+      },
+      take: limit,
+      select: {
+        id: true,
+        nome_exibicao: true,
+        nome_usuario: true,
+        email: true,
+        reputacao: true,
+        createdAt: true,
+        banido: true,
+        bloqueado: true,
+        _count: {
+          select: {
+            reviews: {
+              where: { status: 'OFENSIVA', deletedAt: null },
+            },
+          },
+        },
+      },
+    });
+
+    if (top.length === 0)
+      throw new NotFoundException('Nenhum usuário encontrado.');
+
+    const data = top.map(({ _count, ...user }) => ({
+      ...user,
+      blocked_reviews: _count.reviews,
+    }));
+
+    return get_response('Nenhum dado a ser exibido.', data);
+  }
+
+  async most_reported(query: RankedDTO) {
+    const limit = query.limit ? query.limit : 10;
+    const from = query.from ? query.from : new Date('2026-01-01T00:00:00.000Z');
+    const to = query.to ? query.to : new Date('2026-12-31T23:59:59.999Z');
+
+    return await this.prisma.$transaction(async (tx) => {
+      const reported_posts = await tx.review.groupBy({
+        by: ['id_usuario'],
+        where: {
+          deletedAt: null,
+          qnt_denuncia: {
+            gte: 0,
+          },
+          createdAt: {
+            gte: from,
+            lte: to,
+          },
+        },
+        take: limit,
+        _count: {
+          _all: true,
+        },
+        orderBy: {
+          _count: {
+            id_usuario: 'desc',
+          },
+        },
+      });
+
+      const users = (
+        await Promise.all(
+          reported_posts.map(async (item) => {
+            const usuario = await tx.usuario.findFirst({
+              where: {
+                id: item.id_usuario,
+                deletedAt: null,
+              },
+              select: {
+                id: true,
+                nome_exibicao: true,
+                nome_usuario: true,
+                email: true,
+                reputacao: true,
+                createdAt: true,
+                banido: true,
+                bloqueado: true,
+              },
+            });
+
+            return usuario ? { ...usuario, denuncias: item._count._all } : null;
+          }),
+        )
+      ).filter((user) => user !== null);
+
+      if (users.length === 0)
+        throw new NotFoundException('Nenhum dado a ser exibido.');
+
+      return get_response('Dados abaixo:', users);
+    });
+  }
+
+  async user_summary(query: SummaryDTO) {
+    const from = query.from ? query.from : new Date('2026-01-01T00:00:00.000Z');
+    const to = query.to ? query.to : new Date('2026-12-31T23:59:59.999Z');
+    return await this.prisma.$transaction(async (tx) => {
+      const userCount = await tx.usuario.count({
+        where: {
+          deletedAt: null,
+          AND: {
+            createdAt: { gte: from, lte: to },
+          },
+        },
+      });
+
+      const usersBlocked = await tx.usuario.count({
+        where: {
+          bloqueado: true,
+          deletedAt: null,
+          AND: {
+            createdAt: { gte: from, lte: to },
+          },
+        },
+      });
+      const blockPercent = (usersBlocked / userCount) * 100;
+
+      const usersBanned = await tx.usuario.count({
+        where: {
+          banido: true,
+          deletedAt: null,
+          AND: {
+            createdAt: { gte: from, lte: to },
+          },
+        },
+      });
+      const banPercent = (usersBanned / userCount) * 100;
+
+      const commonCount = userCount - usersBanned - usersBlocked;
+      const commonPercent = (commonCount / userCount) * 100;
+
+      return {
+        totalUsers: userCount,
+        banned: {
+          count: usersBanned,
+          percentage: banPercent,
+        },
+        blocked: {
+          count: usersBlocked,
+          percentage: blockPercent,
+        },
+        common: {
+          count: commonCount,
+          percentage: commonPercent,
+        },
+      };
+    });
+  }
+
+  async open_reviews_reports(query: RankedDTO) {
+    const from = query.from ? query.from : new Date('2026-01-01T00:00:00.000Z');
+    const to = query.to ? query.to : new Date('2026-12-31T23:59:59.999Z');
+    const limit = query.limit ? query.limit : 10;
+
+    return await this.prisma.$transaction(async (tx) => {
+      const open_reports = await tx.denuncia.groupBy({
+        by: ['id_review'],
+        take: limit,
+        where: {
+          createdAt: { gte: from, lte: to },
+          status: 'ATIVA',
+          AND: {
+            review: { deletedAt: null },
+          },
+        },
+        _count: {
+          _all: true,
+        },
+        orderBy: {
+          _count: {
+            id_review: 'desc',
+          },
+        },
+      });
+
+      const reviews = (
+        await Promise.all(
+          open_reports.map(async (item) => {
+            const review = await tx.review.findFirst({
+              where: {
+                id: item.id_review,
+                deletedAt: null,
+              },
+              select: {
+                id: true,
+                status: true,
+                createdAt: true,
+                id_usuario: true,
+                descricao: true,
+                qnt_denuncia: true,
+                qnt_dislikes: true,
+                qnt_favoritos: true,
+                qnt_likes: true,
+                nota: true,
+                autor: { select: { id: true, nome_usuario: true } },
+                lugar: {
+                  select: { cidade: true, estado: true, endereco: true },
+                },
+              },
+            });
+            return review
+              ? { ...review, denuncias_abertas: item._count._all }
+              : null;
+          }),
+        )
+      ).filter((review) => review !== null);
+
+      if (!reviews) throw new NotFoundException('Nenhum dado a ser exibido.');
+
+      return get_response('Dados abaixo:', reviews);
+    });
+  }
+
+  async review_summary(query: SummaryDTO) {
+    const from = query.from ? query.from : new Date('2026-01-01T00:00:00.000Z');
+    const to = query.to ? query.to : new Date('2026-12-31T23:59:59.999Z');
+    return await this.prisma.$transaction(async (tx) => {
+      const reviewsCount = await tx.review.count({
+        where: {
+          deletedAt: null,
+          AND: {
+            createdAt: { gte: from, lte: to },
+          },
+        },
+      });
+
+      const blockedReviews = await tx.review.count({
+        where: {
+          status: 'OFENSIVA',
+          deletedAt: null,
+          AND: {
+            createdAt: { gte: from, lte: to },
+          },
+        },
+      });
+      const blockPercent = (blockedReviews / reviewsCount) * 100;
+
+      const reportedReviews = await tx.review.count({
+        where: {
+          denuncias: { some: { status: 'ATIVA' } },
+          deletedAt: null,
+          AND: {
+            createdAt: { gte: from, lte: to },
+          },
+        },
+      });
+      const reportPercent = (reportedReviews / reviewsCount) * 100;
+
+      const commonCount = reviewsCount - blockedReviews - reportedReviews;
+      const commonPercent = (commonCount / reviewsCount) * 100;
+
+      return {
+        totalReviews: reviewsCount,
+        blocked: {
+          count: blockedReviews,
+          percentage: blockPercent,
+        },
+        reported: {
+          count: reportedReviews,
+          percentage: reportPercent,
+        },
+        common: {
+          count: commonCount,
+          percentage: commonPercent,
+        },
+      };
+    });
   }
 
   async show_users(query: GetUsersDTO) {
@@ -97,10 +379,12 @@ export class AdminService {
         data: { status: data.status },
       });
 
-      await tx.denuncia.updateMany({
-        where: { id_review: report.id_review },
-        data: { status: 'FECHADA' },
-      });
+      if (data.status === 'OFENSIVA') {
+        await tx.denuncia.updateMany({
+          where: { id_review: report.id_review },
+          data: { status: 'FECHADA' },
+        });
+      }
 
       return message_response('Denúncia finalizada.');
     });
@@ -161,6 +445,11 @@ export class AdminService {
   async block(nick: string, data: BlockDTO) {
     const user = await this.adminValidator.verify_user(nick);
 
+    if (user.banido)
+      throw new ConflictException(
+        'Não é possível bloquear o usuário: ele já está banido.',
+      );
+
     await this.prisma.usuario.update({
       data: { bloqueado: true, bloqueado_ate: data.data },
       where: { nome_usuario: user.nome_usuario },
@@ -174,8 +463,14 @@ export class AdminService {
       const user = await this.adminValidator.verify_user(nick);
 
       await ban.usuario.update({
-        data: { banido: true },
         where: { nome_usuario: user.nome_usuario },
+        data: {
+          banido: true,
+          ...(user.bloqueado && {
+            bloqueado: false,
+            bloqueado_ate: null,
+          }),
+        },
       });
 
       await ban.token_refresh.deleteMany({

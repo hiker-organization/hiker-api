@@ -12,8 +12,8 @@ export class GetUsersDTO {
   @IsOptional()
   @Type(() => Number)
   @IsInt()
-  @Min(1)
-  @Max(50)
+  @Min(1, { message: 'Liminte mínimo permitido: 1' })
+  @Max(50, { message: 'Limite máximo permitido: 50' })
   limit?: number;
 
   @IsIn(['id', 'nome_exibicao', 'email', 'banido', 'bloqueado'], {
