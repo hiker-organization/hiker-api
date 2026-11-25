@@ -41,6 +41,7 @@ model Usuario {
   refresh_tokens  Token_refresh[]
   interacoes      Voto_review[]
   recomendacoes   Recomendacao[]
+  classificacoes_revisadas Classificacao_review[]
 }
 
 model Review {
@@ -89,9 +90,12 @@ model Classificacao_review {
   // Admin review of an automatic block: AUTORIZADA reverts it, OFENSIVA confirms it.
   revisado_em     DateTime?
   decisao_admin   Status_Review?
+  // Admin who made that review. Null while pending and for the reviews made before it was recorded.
+  id_revisor      Int?
   createdAt       DateTime    @default(now())
 
   review          Review      @relation(fields: [id_review], references: [id], onDelete: Cascade)
+  revisor         Usuario?    @relation(fields: [id_revisor], references: [id], onDelete: SetNull, onUpdate: Cascade)
 
   @@index([ofensivo])
 }
