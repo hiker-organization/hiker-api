@@ -23,7 +23,7 @@ export class LocalController {
   @UseGuards(AuthToken)
   @Get('search')
   search(@Query() query: SearchLocalDTO) {
-    return this.service.search(query.q);
+    return this.service.search(query.q, query.lat, query.lng);
   }
 
   // Search page: only places that already have reviews.

@@ -21,6 +21,7 @@ import {
 import {
   local_select,
   MAX_SEARCH_RESULTS,
+  SEARCH_BIAS_RADIUS_M,
   TOP_TAGS,
 } from './utils/constants/local.constants.js';
 
@@ -30,7 +31,21 @@ export class LocalService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async search(q: string) {
+  // Google autocomplete. With the user's position the places nearby come first, but
+  // the ones far away still show up when they match better.
+  async search(q: string, lat?: number, lng?: number) {
+    const nearby =
+      lat !== undefined && lng !== undefined
+        ? {
+            locationBias: {
+              circle: {
+                center: { latitude: lat, longitude: lng },
+                radius: SEARCH_BIAS_RADIUS_M,
+              },
+            },
+          }
+        : {};
+
     const response = await fetch(
       'https://places.googleapis.com/v1/places:autocomplete',
       {
@@ -43,6 +58,7 @@ export class LocalService {
           input: q,
           languageCode: 'pt-BR',
           regionCode: 'br',
+          ...nearby,
         }),
       },
     );

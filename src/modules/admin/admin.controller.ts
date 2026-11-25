@@ -24,6 +24,7 @@ import { GetReportsDTO } from './utils/dto/reports.dto.js';
 import { SkipThrottle } from '@nestjs/throttler';
 import { ModerateDTO } from './utils/dto/moderate.dto.js';
 import { GetReviewDTO } from './utils/dto/reviews.dto.js';
+import { GetAutoBlockedDTO } from './utils/dto/auto-blocked.dto.js';
 import { SummaryDTO } from './utils/dto/summary.query.dto.js';
 import { RankedDTO } from './utils/dto/ranked.query.dto.js';
 
@@ -59,14 +60,35 @@ export class AdminController {
     return this.service.reviews_reported(query);
   }
 
+  // Reviews hidden by the offensive content classifier (hiker-moderation).
+  @UseGuards(AuthToken, RolesGuard)
+  @Roles(Role.ADMIM)
+  @Get('reviews/auto-blocked')
+  auto_blocked_reviews(@Query() query: GetAutoBlockedDTO) {
+    return this.service.auto_blocked_reviews(query);
+  }
+
+  // status AUTORIZADA reverts the automatic block, OFENSIVA confirms it.
+  @UseGuards(AuthToken, RolesGuard)
+  @Roles(Role.ADMIM)
+  @Patch('review/:id/auto-block')
+  review_auto_block(
+    @Param('id', ParseIntPipe) reviewId: number,
+    @Body() data: ModerateDTO,
+    @TokenPayloadParam() token: PayloadDTO,
+  ) {
+    return this.service.review_auto_block(reviewId, data, token);
+  }
+
   @UseGuards(AuthToken, RolesGuard)
   @Roles(Role.ADMIM)
   @Patch('report/:id/moderation')
   moredation(
     @Param('id', ParseIntPipe) reportId: number,
     @Body() data: ModerateDTO,
+    @TokenPayloadParam() token: PayloadDTO,
   ) {
-    return this.service.moderate(reportId, data);
+    return this.service.moderate(reportId, data, token);
   }
 
   @UseGuards(AuthToken, RolesGuard)
@@ -77,13 +99,6 @@ export class AdminController {
     @Query() query: GetReportsDTO,
   ) {
     return this.service.reports_review(reviewId, query);
-  }
-
-  @UseGuards(AuthToken, RolesGuard)
-  @Roles(Role.ADMIM)
-  @Patch('report/:id/close')
-  close_report(@Param('id', ParseIntPipe) reportId: number) {
-    return this.service.close_report(reportId);
   }
 
   @UseGuards(AuthToken, RolesGuard)
@@ -125,7 +140,14 @@ export class AdminController {
   @Roles(Role.ADMIM)
   @Get('users/top-by-reports-received')
   users_reports_received(@Query() query: RankedDTO) {
-    return;
+    return this.service.most_reported(query);
+  }
+
+  @UseGuards(AuthToken, RolesGuard)
+  @Roles(Role.ADMIM)
+  @Get('reviews/top-by-open-reports')
+  reviews(@Query() query: RankedDTO) {
+    return this.service.open_reviews_reports(query);
   }
 
   @UseGuards(AuthToken, RolesGuard)

@@ -13,6 +13,7 @@ import { AdminValidator } from './utils/validator/admin.validator.js';
 import { GetReportsDTO } from './utils/dto/reports.dto.js';
 import { ModerateDTO } from './utils/dto/moderate.dto.js';
 import { GetReviewDTO } from './utils/dto/reviews.dto.js';
+import { GetAutoBlockedDTO } from './utils/dto/auto-blocked.dto.js';
 import { SummaryDTO } from './utils/dto/summary.query.dto.js';
 import { RankedDTO } from './utils/dto/ranked.query.dto.js';
 
@@ -58,22 +59,74 @@ export class AdminService {
         _count: {
           select: {
             reviews: {
-              where: { status: 'OFENSIVA', deletedAt: null }
-            }
-          }
-        }
+              where: { status: 'OFENSIVA', deletedAt: null },
+            },
+          },
+        },
       },
     });
 
     if (top.length === 0)
       throw new NotFoundException('Nenhum usuário encontrado.');
-    
+
     const data = top.map(({ _count, ...user }) => ({
       ...user,
       blocked_reviews: _count.reviews,
     }));
 
-    return get_response('Usuários encontrados:', data);
+    return get_response('Nenhum dado a ser exibido.', data);
+  }
+
+  async most_reported(query: RankedDTO) {
+    const limit = query.limit ? query.limit : 10;
+    const from = query.from ? query.from : new Date('2026-01-01T00:00:00.000Z');
+    const to = query.to ? query.to : new Date('2026-12-31T23:59:59.999Z');
+
+    return await this.prisma.$transaction(async (tx) => {
+      // Reports received in the period, by the author of the reported review. Prisma's
+      // groupBy can't group by a relation field, hence the raw query.
+      const reported_posts = await tx.$queryRaw<
+        Array<{ id_usuario: number; denuncias: number }>
+      >`
+        SELECT r.id_usuario, COUNT(d.id)::int AS denuncias
+        FROM "Denuncia" d
+        JOIN "Review" r ON r.id = d.id_review AND r."deletedAt" IS NULL
+        JOIN "Usuario" u ON u.id = r.id_usuario AND u."deletedAt" IS NULL
+        WHERE d."createdAt" BETWEEN ${from} AND ${to}
+        GROUP BY r.id_usuario
+        ORDER BY denuncias DESC, r.id_usuario
+        LIMIT ${limit}`;
+
+      const users = (
+        await Promise.all(
+          reported_posts.map(async (item) => {
+            const usuario = await tx.usuario.findFirst({
+              where: {
+                id: item.id_usuario,
+                deletedAt: null,
+              },
+              select: {
+                id: true,
+                nome_exibicao: true,
+                nome_usuario: true,
+                email: true,
+                reputacao: true,
+                createdAt: true,
+                banido: true,
+                bloqueado: true,
+              },
+            });
+
+            return usuario ? { ...usuario, denuncias: item.denuncias } : null;
+          }),
+        )
+      ).filter((user) => user !== null);
+
+      if (users.length === 0)
+        throw new NotFoundException('Nenhum dado a ser exibido.');
+
+      return get_response('Dados abaixo:', users);
+    });
   }
 
   async user_summary(query: SummaryDTO) {
@@ -129,6 +182,70 @@ export class AdminService {
           percentage: commonPercent,
         },
       };
+    });
+  }
+
+  async open_reviews_reports(query: RankedDTO) {
+    const from = query.from ? query.from : new Date('2026-01-01T00:00:00.000Z');
+    const to = query.to ? query.to : new Date('2026-12-31T23:59:59.999Z');
+    const limit = query.limit ? query.limit : 10;
+
+    return await this.prisma.$transaction(async (tx) => {
+      const open_reports = await tx.denuncia.groupBy({
+        by: ['id_review'],
+        take: limit,
+        where: {
+          createdAt: { gte: from, lte: to },
+          status: 'ATIVA',
+          AND: {
+            review: { deletedAt: null },
+          },
+        },
+        _count: {
+          _all: true,
+        },
+        orderBy: {
+          _count: {
+            id_review: 'desc',
+          },
+        },
+      });
+
+      const reviews = (
+        await Promise.all(
+          open_reports.map(async (item) => {
+            const review = await tx.review.findFirst({
+              where: {
+                id: item.id_review,
+                deletedAt: null,
+              },
+              select: {
+                id: true,
+                status: true,
+                createdAt: true,
+                id_usuario: true,
+                descricao: true,
+                qnt_denuncia: true,
+                qnt_dislikes: true,
+                qnt_favoritos: true,
+                qnt_likes: true,
+                nota: true,
+                autor: { select: { id: true, nome_usuario: true } },
+                lugar: {
+                  select: { cidade: true, estado: true, endereco: true },
+                },
+              },
+            });
+            return review
+              ? { ...review, denuncias_abertas: item._count._all }
+              : null;
+          }),
+        )
+      ).filter((review) => review !== null);
+
+      if (!reviews) throw new NotFoundException('Nenhum dado a ser exibido.');
+
+      return get_response('Dados abaixo:', reviews);
     });
   }
 
@@ -229,17 +346,23 @@ export class AdminService {
     );
   }
 
-  async moderate(id: number, data: ModerateDTO) {
+  async moderate(id: number, data: ModerateDTO, token: PayloadDTO) {
     const report = await this.adminValidator.verify_report(id);
+    // Who decided, what and when, recorded on every report this decision closes.
+    const revisao = {
+      status: 'FECHADA' as const,
+      decisao: data.status,
+      revisado_em: new Date(),
+      id_revisor: token.sub,
+    };
+
     return this.prisma.$transaction(async (tx) => {
       const result = await tx.denuncia.updateMany({
         where: {
           id: id,
           status: { not: 'FECHADA' },
         },
-        data: {
-          status: 'FECHADA',
-        },
+        data: revisao,
       });
 
       if (result.count === 0) {
@@ -253,10 +376,12 @@ export class AdminService {
         data: { status: data.status },
       });
 
+      // The other open reports of the blocked review are closed by the same decision.
+      // The ones already closed keep their own decision.
       if (data.status === 'OFENSIVA') {
         await tx.denuncia.updateMany({
-          where: { id_review: report.id_review },
-          data: { status: 'FECHADA' },
+          where: { id_review: report.id_review, status: { not: 'FECHADA' } },
+          data: revisao,
         });
       }
 
@@ -264,18 +389,40 @@ export class AdminService {
     });
   }
 
-  async close_report(id: number) {
-    const report = await this.adminValidator.verify_report(id);
+  async auto_blocked_reviews(query: GetAutoBlockedDTO) {
+    return await this.adminValidator.get_auto_blocked_reviews(
+      query.pendentes,
+      query.page,
+      query.limit,
+      query.sortBy,
+      query.order,
+    );
+  }
 
-    if (report.status === 'FECHADA')
-      throw new ConflictException('Esta denúncia já foi finalizada.');
+  // Reverts (AUTORIZADA) or confirms (OFENSIVA) a block made by the classifier.
+  async review_auto_block(id: number, data: ModerateDTO, token: PayloadDTO) {
+    await this.adminValidator.verify_auto_blocked(id);
 
-    await this.prisma.denuncia.update({
-      where: { id: id, id_review: report.id_review },
-      data: { status: 'FECHADA' },
-    });
+    await this.prisma.$transaction([
+      this.prisma.review.update({
+        where: { id: id },
+        data: { status: data.status },
+      }),
+      this.prisma.classificacao_review.update({
+        where: { id_review: id },
+        data: {
+          revisado_em: new Date(),
+          decisao_admin: data.status,
+          id_revisor: token.sub,
+        },
+      }),
+    ]);
 
-    return message_response('Denuncia fechada com sucesso.');
+    return message_response(
+      data.status === 'AUTORIZADA'
+        ? 'Bloqueio revertido, a review voltou a ser exibida.'
+        : 'Bloqueio confirmado.',
+    );
   }
 
   async show_user(nick: string) {

@@ -10,16 +10,19 @@ import { UploadAzureService } from '../../common/services/upload.azure.service.j
 import { LocalService } from '../local/local.service.js';
 import { GlobalValidator } from '../../common/validators/global.validator.js';
 import { ReviewValidator } from './validator/review.validator.js';
+import { ModeracaoService } from '../../common/services/moderacao.service.js';
 
 describe('ReviewService', () => {
   let reviewService: ReviewService;
   let prismaService: PrismaService;
   let uploadAzureService: UploadAzureService;
   let localService: { ensure_local: jest.Mock<(placeId: string) => any> };
+  let moderacaoService: { classificar: jest.Mock<(texto: string) => any> };
 
   beforeEach(async () => {
     jest.clearAllMocks();
     localService = { ensure_local: jest.fn() };
+    moderacaoService = { classificar: jest.fn(async () => null) };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -27,6 +30,7 @@ describe('ReviewService', () => {
         { provide: PrismaService, useValue: PrismaServiceMock() },
         { provide: UploadAzureService, useValue: UploadAzureServiceMock() },
         { provide: LocalService, useValue: localService },
+        { provide: ModeracaoService, useValue: moderacaoService },
         GlobalValidator,
         ReviewValidator,
       ],
@@ -100,6 +104,40 @@ describe('ReviewService', () => {
       );
     });
 
+    it('Should save an offensive review as OFENSIVA with its classification.', async () => {
+      const classificacao = {
+        ofensivo: true,
+        probabilidade: 0.97,
+        modelo_versao: 'v1',
+      };
+      moderacaoService.classificar.mockResolvedValue(classificacao);
+      jest
+        .spyOn(prismaService.usuario, 'findUnique')
+        .mockResolvedValue({ banido: false, bloqueado: false } as any);
+      jest
+        .spyOn(prismaService, '$transaction')
+        .mockImplementation((callback: any) => callback(prismaService));
+      jest.spyOn(prismaService.tag, 'findUnique').mockResolvedValue(null);
+      jest
+        .spyOn(prismaService.tag, 'create')
+        .mockResolvedValue({ id: 1 } as any);
+      const create = jest
+        .spyOn(prismaService.review, 'create')
+        .mockResolvedValue({ fotos: [] } as any);
+
+      const result = await reviewService.create_review(ReviewMock, {
+        sub: 1,
+      } as any);
+
+      expect(moderacaoService.classificar).toHaveBeenCalledWith(
+        ReviewMock.descricao,
+      );
+      const args = create.mock.calls[0][0] as any;
+      expect(args.data.status).toBe('OFENSIVA');
+      expect(args.data.classificacao).toEqual({ create: classificacao });
+      expect(result.message).toContain('não será exibida');
+    });
+
     it('Should not create the review when the place cannot be loaded.', async () => {
       jest
         .spyOn(prismaService.usuario, 'findUnique')
@@ -116,6 +154,138 @@ describe('ReviewService', () => {
       ).rejects.toBeInstanceOf(NotFoundException);
       expect(uploadAzureService.addImageReview).not.toHaveBeenCalled();
       expect(create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('get_recommended_reviews', () => {
+    const review = (id: number) => ({
+      id,
+      descricao: `review ${id}`,
+      fotos: [{ url: `review/${id}.jpg` }],
+      autor: { nome_usuario: `autor${id}`, foto_url: null },
+    });
+
+    it('Should return the recommended reviews in rank order with the user context.', async () => {
+      const findMany = jest
+        .spyOn(prismaService.recomendacao, 'findMany')
+        .mockResolvedValue([
+          { review: review(7) },
+          { review: review(3) },
+        ] as any);
+      jest
+        .spyOn(prismaService.voto_review, 'findMany')
+        .mockResolvedValue([{ id_review: 7, tipo: 'LIKE' }] as any);
+      jest
+        .spyOn(prismaService.review_favorita, 'findMany')
+        .mockResolvedValue([{ id_review: 3 }] as any);
+      jest.spyOn(prismaService.denuncia, 'findMany').mockResolvedValue([]);
+      jest
+        .spyOn(uploadAzureService, 'getReviewImageUrl')
+        .mockImplementation((path: string) =>
+          Promise.resolve(`https://signed/${path}`),
+        );
+
+      const result = await reviewService.get_recommended_reviews({
+        sub: 1,
+      } as any);
+
+      expect(findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            id_usuario: 1,
+            review: {
+              oculto: false,
+              deletedAt: null,
+              status: { in: ['AUTORIZADA', 'ANALISE'] },
+            },
+          },
+          orderBy: { rank: 'asc' },
+        }),
+      );
+      expect(result.message).toBe('reviews recomendadas');
+      expect(result.data.map((r: { id: number }) => r.id)).toEqual([7, 3]);
+      expect(result.data[0]).toMatchObject({
+        liked: true,
+        disliked: false,
+        favorited: false,
+        reported: false,
+        fotos: [{ url: 'https://signed/review/7.jpg' }],
+      });
+      expect(result.data[1]).toMatchObject({ liked: false, favorited: true });
+    });
+
+    it('Should return an empty list when the user has no recommendations.', async () => {
+      jest.spyOn(prismaService.recomendacao, 'findMany').mockResolvedValue([]);
+
+      const result = await reviewService.get_recommended_reviews({
+        sub: 1,
+      } as any);
+
+      expect(result).toEqual({ message: 'reviews recomendadas', data: [] });
+      expect(prismaService.voto_review.findMany).not.toHaveBeenCalled();
+    });
+  });
+});
+
+describe('ReviewService - report', () => {
+  let reviewService: ReviewService;
+  let tx: any;
+  let reviewStatus: string;
+  const token = { sub: 4 } as any;
+
+  beforeEach(async () => {
+    reviewStatus = 'AUTORIZADA';
+    tx = {
+      denuncia: { create: jest.fn(async () => ({})) },
+      review: { update: jest.fn(async () => ({})) },
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ReviewService,
+        {
+          provide: PrismaService,
+          useValue: { $transaction: jest.fn(async (fn: any) => fn(tx)) },
+        },
+        { provide: UploadAzureService, useValue: {} },
+        { provide: LocalService, useValue: {} },
+        { provide: ModeracaoService, useValue: {} },
+        { provide: GlobalValidator, useValue: { verify_block: jest.fn() } },
+        {
+          provide: ReviewValidator,
+          useValue: {
+            review_exists: jest.fn(async () => ({
+              id: 8,
+              status: reviewStatus,
+            })),
+            review_reported: jest.fn(),
+          },
+        },
+      ],
+    }).compile();
+
+    reviewService = module.get<ReviewService>(ReviewService);
+  });
+
+  it('Should count the first report of an authorized review once and put it under analysis.', async () => {
+    await reviewService.report(8, token, { categoria: 'Spam' } as any);
+
+    expect(tx.review.update).toHaveBeenCalledTimes(1);
+    expect(tx.review.update).toHaveBeenCalledWith({
+      where: { id: 8 },
+      data: { qnt_denuncia: { increment: 1 }, status: 'ANALISE' },
+    });
+  });
+
+  it('Should only count a report of a review already under analysis.', async () => {
+    reviewStatus = 'ANALISE';
+
+    await reviewService.report(8, token, { categoria: 'Spam' } as any);
+
+    expect(tx.review.update).toHaveBeenCalledTimes(1);
+    expect(tx.review.update).toHaveBeenCalledWith({
+      where: { id: 8 },
+      data: { qnt_denuncia: { increment: 1 } },
     });
   });
 });

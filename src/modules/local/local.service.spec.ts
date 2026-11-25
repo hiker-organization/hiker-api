@@ -98,6 +98,23 @@ describe('LocalService', () => {
     global.fetch = originalFetch;
   });
 
+  it('biases the autocomplete to the user position when given', async () => {
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(new Response(JSON.stringify({ suggestions: [] }))),
+    );
+
+    await service.search('parque', -23.18, -46.89);
+    await service.search('parque');
+
+    const bodies = fetchMock.mock.calls.map(
+      (call) => JSON.parse(call[1]!.body as string) as Record<string, unknown>,
+    );
+    expect(bodies[0].locationBias).toEqual({
+      circle: { center: { latitude: -23.18, longitude: -46.89 }, radius: 50000 },
+    });
+    expect(bodies[1]).not.toHaveProperty('locationBias');
+  });
+
   it('only calls Google for places not cached yet', async () => {
     prisma.local.findMany.mockResolvedValue([{ place_id: 'a', nome: 'A' }]);
     fetchMock.mockResolvedValue(new Response(JSON.stringify(parkDetails)));

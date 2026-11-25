@@ -19,6 +19,7 @@ import { message_response } from '../../common/helpers/message-response.helper.j
 import { CreateReportDTO } from './dtos/create-report.dto.js';
 import { GlobalValidator } from '../../common/validators/global.validator.js';
 import { ReviewValidator } from './validator/review.validator.js';
+import { ModeracaoService } from '../../common/services/moderacao.service.js';
 
 @Injectable()
 export class ReviewService {
@@ -28,6 +29,7 @@ export class ReviewService {
     private readonly localService: LocalService,
     private globalValidator: GlobalValidator,
     private reviewValidator: ReviewValidator,
+    private readonly moderacaoService: ModeracaoService,
   ) {}
 
   async create_review(
@@ -40,6 +42,11 @@ export class ReviewService {
     await this.globalValidator.verify_block(token);
     // Before the photos are uploaded, so a place that can't be loaded uploads nothing.
     await this.localService.ensure_local(data.local_id);
+
+    // Runs while the photos upload. Never throws: null means not classified.
+    const classificacaoPromise = this.moderacaoService.classificar(
+      data.descricao,
+    );
 
     if (fotos && fotos.length > 0) {
       await Promise.all(
@@ -67,6 +74,8 @@ export class ReviewService {
       tagsArray = tagsArray.map((t) => t.trim().toLowerCase()).filter(Boolean);
     }
 
+    const classificacao = await classificacaoPromise;
+
     return await this.prisma.$transaction(async (rw) => {
       const tagIds = await Promise.all(
         tagsArray.map(async (descritivo) => {
@@ -90,6 +99,9 @@ export class ReviewService {
           oculto: data.oculto,
           nota: data.nota,
           id_usuario: token.sub,
+          // OFENSIVA is already hidden by every public query of reviews.
+          status: classificacao?.ofensivo ? 'OFENSIVA' : undefined,
+          classificacao: classificacao ? { create: classificacao } : undefined,
           fotos:
             fotosUrls.length > 0
               ? {
@@ -125,10 +137,12 @@ export class ReviewService {
         })),
       );
 
-      return create_response('Sua review foi criada com sucesso.', {
-        ...review,
-        fotos,
-      });
+      return create_response(
+        classificacao?.ofensivo
+          ? 'Sua review foi criada, mas não será exibida por conter conteúdo possivelmente ofensivo.'
+          : 'Sua review foi criada com sucesso.',
+        { ...review, fotos },
+      );
     });
   }
 
@@ -213,16 +227,14 @@ export class ReviewService {
         },
       });
 
-      if (review.status === 'AUTORIZADA') {
-        await report.review.update({
-          where: { id: id },
-          data: { qnt_denuncia: { increment: 1 }, status: 'ANALISE' },
-        });
-      }
-
+      // One increment per report. The first one of an authorized review also puts it
+      // under analysis.
       await report.review.update({
         where: { id: id },
-        data: { qnt_denuncia: { increment: 1 } },
+        data: {
+          qnt_denuncia: { increment: 1 },
+          ...(review.status === 'AUTORIZADA' && { status: 'ANALISE' }),
+        },
       });
 
       return message_response(
@@ -241,6 +253,11 @@ export class ReviewService {
       ...get_response('reviews disponíveis', data),
       nextCursor,
     };
+  }
+
+  async get_recommended_reviews(token: PayloadDTO) {
+    const data = await this.reviewValidator.find_recommended_reviews(token.sub);
+    return get_response('reviews recomendadas', data);
   }
 
   async get_local_reviews(
