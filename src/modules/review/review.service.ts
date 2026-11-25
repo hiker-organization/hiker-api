@@ -227,16 +227,14 @@ export class ReviewService {
         },
       });
 
-      if (review.status === 'AUTORIZADA') {
-        await report.review.update({
-          where: { id: id },
-          data: { qnt_denuncia: { increment: 1 }, status: 'ANALISE' },
-        });
-      }
-
+      // One increment per report. The first one of an authorized review also puts it
+      // under analysis.
       await report.review.update({
         where: { id: id },
-        data: { qnt_denuncia: { increment: 1 } },
+        data: {
+          qnt_denuncia: { increment: 1 },
+          ...(review.status === 'AUTORIZADA' && { status: 'ANALISE' }),
+        },
       });
 
       return message_response(

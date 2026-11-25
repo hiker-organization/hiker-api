@@ -150,3 +150,58 @@ describe('AdminService - report moderation', () => {
     expect(tx.review.update).not.toHaveBeenCalled();
   });
 });
+
+describe('AdminService - most reported users', () => {
+  let service: AdminService;
+  let tx: any;
+
+  beforeEach(async () => {
+    tx = {
+      $queryRaw: jest.fn(async () => [
+        { id_usuario: 2, denuncias: 3 },
+        { id_usuario: 5, denuncias: 1 },
+      ]),
+      usuario: {
+        findFirst: jest.fn(async (args: any) => ({
+          id: args.where.id,
+          nome_usuario: `user${args.where.id}`,
+        })),
+      },
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AdminService,
+        AdminValidator,
+        {
+          provide: PrismaService,
+          useValue: { $transaction: jest.fn(async (fn: any) => fn(tx)) },
+        },
+      ],
+    }).compile();
+
+    service = module.get<AdminService>(AdminService);
+  });
+
+  it('Should rank the users by the reports their reviews received, not by their reviews.', async () => {
+    const result = await service.most_reported({});
+
+    const [strings] = tx.$queryRaw.mock.calls[0];
+    const sql = strings.join('?');
+    expect(sql).toContain('FROM "Denuncia" d');
+    expect(sql).toContain('COUNT(d.id)');
+
+    expect(result.data).toEqual([
+      { id: 2, nome_usuario: 'user2', denuncias: 3 },
+      { id: 5, nome_usuario: 'user5', denuncias: 1 },
+    ]);
+  });
+
+  it('Should answer 404 when no review was reported in the period.', async () => {
+    tx.$queryRaw.mockResolvedValue([]);
+
+    await expect(service.most_reported({})).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+  });
+});
