@@ -14,6 +14,7 @@ import { AdminValidator } from './utils/validator/admin.validator.js';
 import { GetReportsDTO } from './utils/dto/reports.dto.js';
 import { ModerateDTO } from './utils/dto/moderate.dto.js';
 import { GetReviewDTO } from './utils/dto/reviews.dto.js';
+import { GetAutoBlockedDTO } from './utils/dto/auto-blocked.dto.js';
 
 @Injectable()
 export class AdminService {
@@ -103,6 +104,38 @@ export class AdminService {
 
       return message_response('Denúncia finalizada.');
     });
+  }
+
+  async auto_blocked_reviews(query: GetAutoBlockedDTO) {
+    return await this.adminValidator.get_auto_blocked_reviews(
+      query.pendentes,
+      query.page,
+      query.limit,
+      query.sortBy,
+      query.order,
+    );
+  }
+
+  // Reverts (AUTORIZADA) or confirms (OFENSIVA) a block made by the classifier.
+  async review_auto_block(id: number, data: ModerateDTO) {
+    await this.adminValidator.verify_auto_blocked(id);
+
+    await this.prisma.$transaction([
+      this.prisma.review.update({
+        where: { id: id },
+        data: { status: data.status },
+      }),
+      this.prisma.classificacao_review.update({
+        where: { id_review: id },
+        data: { revisado_em: new Date(), decisao_admin: data.status },
+      }),
+    ]);
+
+    return message_response(
+      data.status === 'AUTORIZADA'
+        ? 'Bloqueio revertido, a review voltou a ser exibida.'
+        : 'Bloqueio confirmado.',
+    );
   }
 
   async close_report(id: number) {

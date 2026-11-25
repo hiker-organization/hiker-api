@@ -1,6 +1,12 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service.js';
 import { Status_Denuncia } from '../../../../../generated/prisma/enums.js';
+import type { Prisma } from '../../../../../generated/prisma/client.js';
+import { bloqueio_automatico } from '../constants/bloqueio.constants.js';
 
 @Injectable()
 export class AdminValidator {
@@ -193,6 +199,78 @@ export class AdminValidator {
       data: reviews,
       meta,
     };
+  }
+
+  async get_auto_blocked_reviews(
+    pendentes = true,
+    page = 1,
+    limit = 10,
+    sortBy = 'createdAt',
+    order = 'desc',
+  ) {
+    const skip = (page - 1) * limit;
+    const where: Prisma.ReviewWhereInput = {
+      deletedAt: null,
+      AND: [
+        bloqueio_automatico,
+        ...(pendentes
+          ? [{ classificacao: { is: { revisado_em: null } } }]
+          : []),
+      ],
+    };
+
+    const [reviews, total] = await Promise.all([
+      this.prisma.review.findMany({
+        skip,
+        take: limit,
+        orderBy: { [sortBy]: order },
+        where,
+        select: {
+          id: true,
+          autor: { select: { nome_usuario: true } },
+          descricao: true,
+          status: true,
+          createdAt: true,
+          lugar: { select: { cidade: true, nome: true, sigla_estado: true } },
+          classificacao: {
+            select: {
+              probabilidade: true,
+              modelo_versao: true,
+              revisado_em: true,
+              decisao_admin: true,
+            },
+          },
+        },
+      }),
+      this.prisma.review.count({ where }),
+    ]);
+
+    const meta = {
+      page,
+      limit,
+      total,
+      total_pages: Math.ceil(total / limit),
+    };
+
+    return {
+      data: reviews,
+      meta,
+    };
+  }
+
+  async verify_auto_blocked(id: number) {
+    const review = await this.prisma.review.findFirst({
+      where: { id: id, deletedAt: null },
+      select: { id: true, classificacao: { select: { ofensivo: true } } },
+    });
+
+    if (!review) throw new NotFoundException('Review não encontrada.');
+    if (!review.classificacao?.ofensivo)
+      throw new UnprocessableEntityException(
+        'Esta review não foi bloqueada automaticamente.',
+      );
+
+    return review;
   }
 
   async get_user(nick: string) {
