@@ -103,13 +103,6 @@ export class AdminController {
 
   @UseGuards(AuthToken, RolesGuard)
   @Roles(Role.ADMIM)
-  @Patch('report/:id/close')
-  close_report(@Param('id', ParseIntPipe) reportId: number) {
-    return this.service.close_report(reportId);
-  }
-
-  @UseGuards(AuthToken, RolesGuard)
-  @Roles(Role.ADMIM)
   @Put('user/:nick/ban')
   ban(@Param('nick') nick: string) {
     return this.service.ban(nick);

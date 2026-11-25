@@ -434,20 +434,6 @@ export class AdminService {
     );
   }
 
-  async close_report(id: number) {
-    const report = await this.adminValidator.verify_report(id);
-
-    if (report.status === 'FECHADA')
-      throw new ConflictException('Esta denúncia já foi finalizada.');
-
-    await this.prisma.denuncia.update({
-      where: { id: id, id_review: report.id_review },
-      data: { status: 'FECHADA' },
-    });
-
-    return message_response('Denuncia fechada com sucesso.');
-  }
-
   async show_user(nick: string) {
     const user = await this.adminValidator.get_user(nick);
 
