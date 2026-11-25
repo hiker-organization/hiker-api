@@ -9,6 +9,7 @@ import { AdminService } from './admin.service.js';
 import { AdminValidator } from './utils/validator/admin.validator.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { PayloadDTO } from '../auth/dto/payload.dto.js';
+import { UploadAzureService } from '../../common/services/upload.azure.service.js';
 
 describe('AdminService - automatic blocks', () => {
   let service: AdminService;
@@ -31,6 +32,7 @@ describe('AdminService - automatic blocks', () => {
       providers: [
         AdminService,
         AdminValidator,
+        { provide: UploadAzureService, useValue: {} },
         { provide: PrismaService, useValue: prisma },
       ],
     }).compile();
@@ -105,6 +107,7 @@ describe('AdminService - report moderation', () => {
       providers: [
         AdminService,
         AdminValidator,
+        { provide: UploadAzureService, useValue: {} },
         { provide: PrismaService, useValue: prisma },
       ],
     }).compile();
@@ -173,6 +176,7 @@ describe('AdminService - most reported users', () => {
       providers: [
         AdminService,
         AdminValidator,
+        { provide: UploadAzureService, useValue: {} },
         {
           provide: PrismaService,
           useValue: { $transaction: jest.fn(async (fn: any) => fn(tx)) },
@@ -203,5 +207,45 @@ describe('AdminService - most reported users', () => {
     await expect(service.most_reported({})).rejects.toBeInstanceOf(
       NotFoundException,
     );
+  });
+});
+
+describe('AdminValidator - user photos', () => {
+  let validator: AdminValidator;
+  const getUserImageUrl = jest.fn(
+    async (blob: string) => `https://signed/${blob}`,
+  );
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AdminValidator,
+        {
+          provide: PrismaService,
+          useValue: {
+            usuario: {
+              findMany: jest.fn(async () => [
+                { id: 1, foto_url: 'user-1.png' },
+                { id: 2, foto_url: null },
+              ]),
+              count: jest.fn(async () => 2),
+            },
+          },
+        },
+        { provide: UploadAzureService, useValue: { getUserImageUrl } },
+      ],
+    }).compile();
+
+    validator = module.get<AdminValidator>(AdminValidator);
+  });
+
+  it('Should return the user photos as signed URLs and keep the users without photo.', async () => {
+    const result = await validator.get_users();
+
+    expect(result.data).toEqual([
+      { id: 1, foto_url: 'https://signed/user-1.png' },
+      { id: 2, foto_url: null },
+    ]);
+    expect(getUserImageUrl).toHaveBeenCalledTimes(1);
   });
 });
