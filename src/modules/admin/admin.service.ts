@@ -401,7 +401,7 @@ export class AdminService {
   }
 
   // Reverts (AUTORIZADA) or confirms (OFENSIVA) a block made by the classifier.
-  async review_auto_block(id: number, data: ModerateDTO) {
+  async review_auto_block(id: number, data: ModerateDTO, token: PayloadDTO) {
     await this.adminValidator.verify_auto_blocked(id);
 
     await this.prisma.$transaction([
@@ -411,7 +411,11 @@ export class AdminService {
       }),
       this.prisma.classificacao_review.update({
         where: { id_review: id },
-        data: { revisado_em: new Date(), decisao_admin: data.status },
+        data: {
+          revisado_em: new Date(),
+          decisao_admin: data.status,
+          id_revisor: token.sub,
+        },
       }),
     ]);
 

@@ -7,10 +7,12 @@ import {
 import { AdminService } from './admin.service.js';
 import { AdminValidator } from './utils/validator/admin.validator.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { PayloadDTO } from '../auth/dto/payload.dto.js';
 
 describe('AdminService - automatic blocks', () => {
   let service: AdminService;
   let prisma: any;
+  const token = { sub: 3 } as PayloadDTO;
 
   beforeEach(async () => {
     prisma = {
@@ -41,9 +43,11 @@ describe('AdminService - automatic blocks', () => {
       classificacao: { ofensivo: true },
     });
 
-    const result = await service.review_auto_block(7, {
-      status: 'AUTORIZADA',
-    });
+    const result = await service.review_auto_block(
+      7,
+      { status: 'AUTORIZADA' },
+      token,
+    );
 
     expect(prisma.review.update).toHaveBeenCalledWith({
       where: { id: 7 },
@@ -53,6 +57,7 @@ describe('AdminService - automatic blocks', () => {
     expect(classificacao.where).toEqual({ id_review: 7 });
     expect(classificacao.data.decisao_admin).toBe('AUTORIZADA');
     expect(classificacao.data.revisado_em).toBeInstanceOf(Date);
+    expect(classificacao.data.id_revisor).toBe(3);
     expect(result.message).toContain('revertido');
   });
 
@@ -63,7 +68,7 @@ describe('AdminService - automatic blocks', () => {
     });
 
     await expect(
-      service.review_auto_block(7, { status: 'AUTORIZADA' }),
+      service.review_auto_block(7, { status: 'AUTORIZADA' }, token),
     ).rejects.toBeInstanceOf(UnprocessableEntityException);
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
@@ -72,7 +77,7 @@ describe('AdminService - automatic blocks', () => {
     prisma.review.findFirst.mockResolvedValue(null);
 
     await expect(
-      service.review_auto_block(99, { status: 'OFENSIVA' }),
+      service.review_auto_block(99, { status: 'OFENSIVA' }, token),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 });

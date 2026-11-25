@@ -209,15 +209,20 @@ export class AdminValidator {
     order = 'desc',
   ) {
     const skip = (page - 1) * limit;
-    const where: Prisma.ReviewWhereInput = {
-      deletedAt: null,
-      AND: [
-        bloqueio_automatico,
-        ...(pendentes
-          ? [{ classificacao: { is: { revisado_em: null } } }]
-          : []),
-      ],
-    };
+    // A reverted review leaves bloqueio_automatico (its status is no longer
+    // OFENSIVA), so the reviewed ones are taken from the classification alone.
+    const where: Prisma.ReviewWhereInput = pendentes
+      ? {
+          deletedAt: null,
+          AND: [
+            bloqueio_automatico,
+            { classificacao: { is: { revisado_em: null } } },
+          ],
+        }
+      : {
+          deletedAt: null,
+          classificacao: { is: { ofensivo: true, revisado_em: { not: null } } },
+        };
 
     const [reviews, total] = await Promise.all([
       this.prisma.review.findMany({
@@ -238,6 +243,7 @@ export class AdminValidator {
               modelo_versao: true,
               revisado_em: true,
               decisao_admin: true,
+              revisor: { select: { nome_usuario: true } },
             },
           },
         },

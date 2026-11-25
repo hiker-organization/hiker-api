@@ -75,8 +75,9 @@ export class AdminController {
   review_auto_block(
     @Param('id', ParseIntPipe) reviewId: number,
     @Body() data: ModerateDTO,
+    @TokenPayloadParam() token: PayloadDTO,
   ) {
-    return this.service.review_auto_block(reviewId, data);
+    return this.service.review_auto_block(reviewId, data, token);
   }
 
   @UseGuards(AuthToken, RolesGuard)
