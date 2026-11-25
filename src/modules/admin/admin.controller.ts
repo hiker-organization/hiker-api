@@ -86,8 +86,9 @@ export class AdminController {
   moredation(
     @Param('id', ParseIntPipe) reportId: number,
     @Body() data: ModerateDTO,
+    @TokenPayloadParam() token: PayloadDTO,
   ) {
-    return this.service.moderate(reportId, data);
+    return this.service.moderate(reportId, data, token);
   }
 
   @UseGuards(AuthToken, RolesGuard)

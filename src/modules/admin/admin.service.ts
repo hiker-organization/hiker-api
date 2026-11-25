@@ -355,17 +355,23 @@ export class AdminService {
     );
   }
 
-  async moderate(id: number, data: ModerateDTO) {
+  async moderate(id: number, data: ModerateDTO, token: PayloadDTO) {
     const report = await this.adminValidator.verify_report(id);
+    // Who decided, what and when, recorded on every report this decision closes.
+    const revisao = {
+      status: 'FECHADA' as const,
+      decisao: data.status,
+      revisado_em: new Date(),
+      id_revisor: token.sub,
+    };
+
     return this.prisma.$transaction(async (tx) => {
       const result = await tx.denuncia.updateMany({
         where: {
           id: id,
           status: { not: 'FECHADA' },
         },
-        data: {
-          status: 'FECHADA',
-        },
+        data: revisao,
       });
 
       if (result.count === 0) {
@@ -379,10 +385,12 @@ export class AdminService {
         data: { status: data.status },
       });
 
+      // The other open reports of the blocked review are closed by the same decision.
+      // The ones already closed keep their own decision.
       if (data.status === 'OFENSIVA') {
         await tx.denuncia.updateMany({
-          where: { id_review: report.id_review },
-          data: { status: 'FECHADA' },
+          where: { id_review: report.id_review, status: { not: 'FECHADA' } },
+          data: revisao,
         });
       }
 

@@ -1,6 +1,7 @@
 import { beforeEach, describe, jest, it, expect } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import {
+  ConflictException,
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
@@ -79,5 +80,73 @@ describe('AdminService - automatic blocks', () => {
     await expect(
       service.review_auto_block(99, { status: 'OFENSIVA' }, token),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+});
+
+describe('AdminService - report moderation', () => {
+  let service: AdminService;
+  let prisma: any;
+  let tx: any;
+  const token = { sub: 3 } as PayloadDTO;
+
+  beforeEach(async () => {
+    tx = {
+      denuncia: { updateMany: jest.fn(async () => ({ count: 1 })) },
+      review: { update: jest.fn(async () => ({})) },
+    };
+    prisma = {
+      $transaction: jest.fn(async (fn: any) => fn(tx)),
+      denuncia: {
+        findUnique: jest.fn(async () => ({ id: 5, id_review: 9 })),
+      },
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AdminService,
+        AdminValidator,
+        { provide: PrismaService, useValue: prisma },
+      ],
+    }).compile();
+
+    service = module.get<AdminService>(AdminService);
+  });
+
+  it('Should record the decision and the admin when discarding a report.', async () => {
+    await service.moderate(5, { status: 'AUTORIZADA' }, token);
+
+    const closed = tx.denuncia.updateMany.mock.calls[0][0];
+    expect(closed.where).toEqual({ id: 5, status: { not: 'FECHADA' } });
+    expect(closed.data.status).toBe('FECHADA');
+    expect(closed.data.decisao).toBe('AUTORIZADA');
+    expect(closed.data.id_revisor).toBe(3);
+    expect(closed.data.revisado_em).toBeInstanceOf(Date);
+    // Discarding closes only this report.
+    expect(tx.denuncia.updateMany).toHaveBeenCalledTimes(1);
+  });
+
+  it('Should close the other open reports of a blocked review with the same decision.', async () => {
+    await service.moderate(5, { status: 'OFENSIVA' }, token);
+
+    const others = tx.denuncia.updateMany.mock.calls[1][0];
+    expect(others.where).toEqual({
+      id_review: 9,
+      status: { not: 'FECHADA' },
+    });
+    expect(others.data.decisao).toBe('OFENSIVA');
+    expect(others.data.id_revisor).toBe(3);
+    expect(tx.review.update).toHaveBeenCalledWith({
+      where: { id: 9 },
+      data: { status: 'OFENSIVA' },
+    });
+  });
+
+  it('Should refuse a report that is already closed.', async () => {
+    tx.denuncia.updateMany.mockResolvedValueOnce({ count: 0 });
+
+    await expect(
+      service.moderate(5, { status: 'AUTORIZADA' }, token),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(tx.review.update).not.toHaveBeenCalled();
   });
 });
