@@ -83,28 +83,19 @@ export class AdminService {
     const to = query.to ? query.to : new Date('2026-12-31T23:59:59.999Z');
 
     return await this.prisma.$transaction(async (tx) => {
-      const reported_posts = await tx.review.groupBy({
-        by: ['id_usuario'],
-        where: {
-          deletedAt: null,
-          qnt_denuncia: {
-            gte: 0,
-          },
-          createdAt: {
-            gte: from,
-            lte: to,
-          },
-        },
-        take: limit,
-        _count: {
-          _all: true,
-        },
-        orderBy: {
-          _count: {
-            id_usuario: 'desc',
-          },
-        },
-      });
+      // Reports received in the period, by the author of the reported review. Prisma's
+      // groupBy can't group by a relation field, hence the raw query.
+      const reported_posts = await tx.$queryRaw<
+        Array<{ id_usuario: number; denuncias: number }>
+      >`
+        SELECT r.id_usuario, COUNT(d.id)::int AS denuncias
+        FROM "Denuncia" d
+        JOIN "Review" r ON r.id = d.id_review AND r."deletedAt" IS NULL
+        JOIN "Usuario" u ON u.id = r.id_usuario AND u."deletedAt" IS NULL
+        WHERE d."createdAt" BETWEEN ${from} AND ${to}
+        GROUP BY r.id_usuario
+        ORDER BY denuncias DESC, r.id_usuario
+        LIMIT ${limit}`;
 
       const users = (
         await Promise.all(
@@ -126,7 +117,7 @@ export class AdminService {
               },
             });
 
-            return usuario ? { ...usuario, denuncias: item._count._all } : null;
+            return usuario ? { ...usuario, denuncias: item.denuncias } : null;
           }),
         )
       ).filter((user) => user !== null);

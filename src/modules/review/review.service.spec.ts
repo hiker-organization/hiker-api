@@ -226,3 +226,66 @@ describe('ReviewService', () => {
     });
   });
 });
+
+describe('ReviewService - report', () => {
+  let reviewService: ReviewService;
+  let tx: any;
+  let reviewStatus: string;
+  const token = { sub: 4 } as any;
+
+  beforeEach(async () => {
+    reviewStatus = 'AUTORIZADA';
+    tx = {
+      denuncia: { create: jest.fn(async () => ({})) },
+      review: { update: jest.fn(async () => ({})) },
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ReviewService,
+        {
+          provide: PrismaService,
+          useValue: { $transaction: jest.fn(async (fn: any) => fn(tx)) },
+        },
+        { provide: UploadAzureService, useValue: {} },
+        { provide: LocalService, useValue: {} },
+        { provide: ModeracaoService, useValue: {} },
+        { provide: GlobalValidator, useValue: { verify_block: jest.fn() } },
+        {
+          provide: ReviewValidator,
+          useValue: {
+            review_exists: jest.fn(async () => ({
+              id: 8,
+              status: reviewStatus,
+            })),
+            review_reported: jest.fn(),
+          },
+        },
+      ],
+    }).compile();
+
+    reviewService = module.get<ReviewService>(ReviewService);
+  });
+
+  it('Should count the first report of an authorized review once and put it under analysis.', async () => {
+    await reviewService.report(8, token, { categoria: 'Spam' } as any);
+
+    expect(tx.review.update).toHaveBeenCalledTimes(1);
+    expect(tx.review.update).toHaveBeenCalledWith({
+      where: { id: 8 },
+      data: { qnt_denuncia: { increment: 1 }, status: 'ANALISE' },
+    });
+  });
+
+  it('Should only count a report of a review already under analysis.', async () => {
+    reviewStatus = 'ANALISE';
+
+    await reviewService.report(8, token, { categoria: 'Spam' } as any);
+
+    expect(tx.review.update).toHaveBeenCalledTimes(1);
+    expect(tx.review.update).toHaveBeenCalledWith({
+      where: { id: 8 },
+      data: { qnt_denuncia: { increment: 1 } },
+    });
+  });
+});
