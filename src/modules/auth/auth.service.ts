@@ -16,6 +16,7 @@ import { randomInt } from 'node:crypto';
 import { HashingService } from '../../common/services/hash.service.js';
 import { login_response } from '../../common/helpers/login-response.helper.js';
 import { message_response } from '../../common/helpers/message-response.helper.js';
+import { get_response } from '../../common/helpers/get-response.helper.js';
 import { jwtConstants } from './config/jwt.constants.js';
 import { Response, Request } from 'express';
 import { AuthValidator } from './utils/validator/auth.validator.js';
@@ -237,6 +238,15 @@ export class AuthService {
     ]);
 
     return login_response(message, accessToken, refreshToken);
+  }
+
+  // The cargo comes from the token, the same one RolesGuard checks.
+  web_me(token: PayloadDTO) {
+    return get_response('Sessão ativa.', {
+      id: token.sub,
+      email: token.email,
+      cargo: token.cargo,
+    });
   }
 
   async login_web(loginDto: LoginDTO, res: Response) {

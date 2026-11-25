@@ -1,4 +1,12 @@
-import { Body, Controller, Post, Req, Res, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import { GoogleLoginDTO } from './dto/google-login.dto.js';
 import { GoogleRegisterDTO } from './dto/google-register.dto.js';
 import { AuthToken } from './guard/auth.guard.js';
@@ -66,6 +74,15 @@ export class AuthController {
   @Post('logout')
   logout(@Body() refreshTokenDto: RefreshTokenDTO) {
     return this.authService.logout(refreshTokenDto.refresh_token);
+  }
+
+  // Session check of the web panel, called on every page load: it gets the
+  // global limit of the other routes instead of the strict one of the login.
+  @SkipThrottle({ auth: true, global: false })
+  @UseGuards(AuthToken)
+  @Get('web/me')
+  web_me(@TokenPayloadParam() token: PayloadDTO) {
+    return this.authService.web_me(token);
   }
 
   @Post('web/logout')
