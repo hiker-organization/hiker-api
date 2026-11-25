@@ -95,6 +95,9 @@ export class AdminValidator {
           id_review: true,
           id_usuario: true,
           status: true,
+          decisao: true,
+          revisado_em: true,
+          revisor: { select: { nome_usuario: true } },
           autor: { select: { nome_usuario: true } },
           review: {
             select: {
@@ -146,6 +149,9 @@ export class AdminValidator {
           id_review: true,
           id_usuario: true,
           status: true,
+          decisao: true,
+          revisado_em: true,
+          revisor: { select: { nome_usuario: true } },
           autor: { select: { nome_usuario: true } },
         },
       }),

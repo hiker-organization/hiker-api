@@ -35,7 +35,8 @@ model Usuario {
   reviews         Review[]
   trilhas         Trilha[]
   reviews_favoritas       Review_favorita[]
-  denuncias       Denuncia[]
+  denuncias       Denuncia[]  @relation("DenunciaAutor")
+  denuncias_revisadas Denuncia[] @relation("DenunciaRevisor")
   tokens          Token_redefinicao_senha[]
   tokens_email    Token_alteracao_email[]
   refresh_tokens  Token_refresh[]
@@ -274,10 +275,17 @@ model Denuncia {
   categoria  String
   descricao  String?
   status     Status_Denuncia          @default(ATIVA)
+  // Admin decision that closed it: OFENSIVA blocked the review, AUTORIZADA discarded the report.
+  // Null while open and for the reports closed before it was recorded.
+  decisao     Status_Review?
+  revisado_em DateTime?
+  id_revisor  Int?
   createdAt  DateTime   @default(now())
 
-  autor      Usuario    @relation(fields: [id_usuario], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  autor      Usuario    @relation("DenunciaAutor", fields: [id_usuario], references: [id], onDelete: Cascade, onUpdate: Cascade)
   id_usuario Int
+
+  revisor    Usuario?   @relation("DenunciaRevisor", fields: [id_revisor], references: [id], onDelete: SetNull, onUpdate: Cascade)
 
   review     Review     @relation(fields: [id_review], references: [id], onDelete: Cascade, onUpdate: Cascade)
   id_review  Int

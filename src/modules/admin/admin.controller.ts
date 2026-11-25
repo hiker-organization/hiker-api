@@ -86,8 +86,9 @@ export class AdminController {
   moredation(
     @Param('id', ParseIntPipe) reportId: number,
     @Body() data: ModerateDTO,
+    @TokenPayloadParam() token: PayloadDTO,
   ) {
-    return this.service.moderate(reportId, data);
+    return this.service.moderate(reportId, data, token);
   }
 
   @UseGuards(AuthToken, RolesGuard)
@@ -98,13 +99,6 @@ export class AdminController {
     @Query() query: GetReportsDTO,
   ) {
     return this.service.reports_review(reviewId, query);
-  }
-
-  @UseGuards(AuthToken, RolesGuard)
-  @Roles(Role.ADMIM)
-  @Patch('report/:id/close')
-  close_report(@Param('id', ParseIntPipe) reportId: number) {
-    return this.service.close_report(reportId);
   }
 
   @UseGuards(AuthToken, RolesGuard)
