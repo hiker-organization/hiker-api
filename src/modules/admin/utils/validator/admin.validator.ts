@@ -7,10 +7,26 @@ import { PrismaService } from '../../../prisma/prisma.service.js';
 import { Status_Denuncia } from '../../../../../generated/prisma/enums.js';
 import type { Prisma } from '../../../../../generated/prisma/client.js';
 import { bloqueio_automatico } from '../constants/bloqueio.constants.js';
+import { UploadAzureService } from '../../../../common/services/upload.azure.service.js';
 
 @Injectable()
 export class AdminValidator {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly uploadAzureService: UploadAzureService,
+  ) {}
+
+  // The database keeps only the blob name: the photo opens through a signed URL.
+  private async sign_user_photo<T extends { foto_url: string | null }>(
+    user: T,
+  ) {
+    return {
+      ...user,
+      foto_url: user.foto_url
+        ? await this.uploadAzureService.getUserImageUrl(user.foto_url)
+        : null,
+    };
+  }
 
   async verify_user(nick: string) {
     const user = await this.prisma.usuario.findUnique({
@@ -68,7 +84,7 @@ export class AdminValidator {
     if (!users) throw new NotFoundException('Nenhum usuário encontrado.');
 
     return {
-      data: users,
+      data: await Promise.all(users.map((user) => this.sign_user_photo(user))),
       meta,
     };
   }
@@ -306,6 +322,6 @@ export class AdminValidator {
 
     if (!user) throw new NotFoundException('Usuário não encontrado.');
 
-    return user;
+    return await this.sign_user_photo(user);
   }
 }
