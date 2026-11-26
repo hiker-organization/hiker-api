@@ -258,22 +258,34 @@ export class AuthService {
     });
   }
 
-  async login_web(loginDto: LoginDTO, res: Response) {
-    const tokens = await this.login(loginDto);
-
-    res.cookie('access_token', tokens.access_token, {
+  // Each cookie lives as long as its token, so the session survives closing the browser
+  // until the refresh token expires (cookies without maxAge are dropped with the browser).
+  private set_auth_cookies(
+    res: Response,
+    tokens: { access_token: string; refresh_token: string },
+  ) {
+    const options = {
       httpOnly: true,
       secure: true,
-      sameSite: 'none',
+      sameSite: 'none' as const,
       path: '/',
+    };
+
+    res.cookie('access_token', tokens.access_token, {
+      ...options,
+      maxAge: jwtConstants.jwtTtl * 1000,
     });
 
     res.cookie('refresh_token', tokens.refresh_token, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'none',
-      path: '/',
+      ...options,
+      maxAge: jwtConstants.refreshTokenTtl * 1000,
     });
+  }
+
+  async login_web(loginDto: LoginDTO, res: Response) {
+    const tokens = await this.login(loginDto);
+
+    this.set_auth_cookies(res, tokens);
 
     return message_response('Logado com sucesso');
   }
@@ -343,19 +355,7 @@ export class AuthService {
 
     const tokens = await this.refresh(refreshToken);
 
-    res.cookie('access_token', tokens.access_token, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'none',
-      path: '/',
-    });
-
-    res.cookie('refresh_token', tokens.refresh_token, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'none',
-      path: '/',
-    });
+    this.set_auth_cookies(res, tokens);
 
     return message_response('Token renovado com sucesso.');
   }
