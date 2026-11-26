@@ -24,6 +24,7 @@ describe('AuthController — /auth/web/me', () => {
   const payload = { sub: 7, email: 'admin@hiker.com', cargo: 'ADM' };
   const verifyAsync = jest.fn<(token: string) => Promise<unknown>>();
   const findUnique = jest.fn<(args: unknown) => Promise<unknown>>();
+  const getUserImageUrl = jest.fn<(blobName: string) => Promise<string>>();
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -33,7 +34,13 @@ describe('AuthController — /auth/web/me', () => {
           provide: AuthService,
           useValue: {
             web_me: (token: PayloadDTO) =>
-              AuthService.prototype.web_me.call(undefined, token),
+              AuthService.prototype.web_me.call(
+                {
+                  prisma: { usuario: { findUnique } },
+                  uploadAzureService: { getUserImageUrl },
+                },
+                token,
+              ),
           },
         },
         { provide: JwtService, useValue: { verifyAsync } },
@@ -51,10 +58,17 @@ describe('AuthController — /auth/web/me', () => {
 
   beforeEach(() => {
     verifyAsync.mockReset().mockResolvedValue(payload);
-    findUnique.mockReset().mockResolvedValue({ id: 7, banido: false });
+    findUnique
+      .mockReset()
+      .mockResolvedValue({ id: 7, banido: false, foto_url: null });
+    getUserImageUrl
+      .mockReset()
+      .mockImplementation((blobName) =>
+        Promise.resolve(`https://blob/${blobName}?sas`),
+      );
   });
 
-  it('devolve o id, o e-mail e o cargo do token', async () => {
+  it('devolve o id, o e-mail e o cargo do token, sem foto quando não há', async () => {
     const response = await request(app.getHttpServer())
       .get('/auth/web/me')
       .set('Authorization', 'Bearer token-valido')
@@ -62,8 +76,26 @@ describe('AuthController — /auth/web/me', () => {
 
     expect(response.body).toEqual({
       message: 'Sessão ativa.',
-      data: { id: 7, email: 'admin@hiker.com', cargo: 'ADM' },
+      data: { id: 7, email: 'admin@hiker.com', cargo: 'ADM', foto_url: null },
     });
+    expect(getUserImageUrl).not.toHaveBeenCalled();
+  });
+
+  it('devolve a foto de perfil como URL assinada', async () => {
+    findUnique.mockResolvedValue({
+      id: 7,
+      banido: false,
+      foto_url: 'perfil/7.jpg',
+    });
+
+    const response = await request(app.getHttpServer())
+      .get('/auth/web/me')
+      .set('Authorization', 'Bearer token-valido')
+      .expect(200);
+
+    expect(getUserImageUrl).toHaveBeenCalledWith('perfil/7.jpg');
+    const body = response.body as { data: { foto_url: string | null } };
+    expect(body.data.foto_url).toBe('https://blob/perfil/7.jpg?sas');
   });
 
   it('responde 401 sem token', async () => {

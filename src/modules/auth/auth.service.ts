@@ -241,11 +241,20 @@ export class AuthService {
   }
 
   // The cargo comes from the token, the same one RolesGuard checks.
-  web_me(token: PayloadDTO) {
+  // The photo is the only field read from the database, for the avatar in the manager header.
+  async web_me(token: PayloadDTO) {
+    const user = await this.prisma.usuario.findUnique({
+      where: { id: token.sub },
+      select: { foto_url: true },
+    });
+
     return get_response('Sessão ativa.', {
       id: token.sub,
       email: token.email,
       cargo: token.cargo,
+      foto_url: user?.foto_url
+        ? await this.uploadAzureService.getUserImageUrl(user.foto_url)
+        : null,
     });
   }
 
